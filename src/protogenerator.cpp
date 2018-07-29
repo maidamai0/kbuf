@@ -7,6 +7,8 @@
 
 using namespace rapidjson;
 
+extern spdlog::logger *g_logger;
+
 __attribute__((unused)) static const char* kTypeNames[] =
 {
 	"Null", "False", "True", "Object", "Array", "String", "Number"
@@ -31,14 +33,14 @@ bool protoGenerator::GeneratorProto()
 	m_log.open("log.txt");
 	if(!m_log.is_open())
 	{
-		printf("open log failed\n");
+        g_logger->critical("open log failed\n");
 	}
 
 	if(!scan())
 	{
 		return false;
 	}
-	printf("scan complete\n");
+    g_logger->info("scan complete\n");
 
 	rapidjson::StringBuffer buffer;
 	PrettyWriter<StringBuffer> OutWriter(buffer);
@@ -109,13 +111,13 @@ bool protoGenerator::scan()
 	string src = m_strFileNameNoExt;
 	src.append(".json");
 
-	printf("scan %s\n", src.c_str());
+    g_logger->info("scan {}", src.c_str());
 
 	FILE *fp = fopen(src.c_str(), "rb");
 
 	if(!fp)
 	{
-		printf("open %s failed\n", src.c_str());
+        g_logger->error("open {} failed", src.c_str());
 		return false;
 	}
 

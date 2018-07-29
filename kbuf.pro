@@ -9,6 +9,8 @@ HEADERS +=  ./inc/protogenerator.h \
             ./inc/spdlog/*.h \
             ./inc/spdlog/details/*.h \
             ./inc/spdlog/sinks/*.h \
+            ./inc/spdlog/fmt/*.h \
+            ./inc/spdlog/fmt/bundled/*.h \
 
 DISTFILES += makefile
 
@@ -20,4 +22,3 @@ SOURCES += \
 
 
 INCLUDEPATH += ./inc/ \
-               ./inc/spdlog/
