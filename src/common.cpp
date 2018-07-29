@@ -43,7 +43,6 @@ void ToLowCase(char &c)
 	return;
 }
 
-
 void ToUpperCase(char &c)
 {
 	if(c > lowstart && c < lowend)

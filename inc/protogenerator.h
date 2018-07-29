@@ -30,27 +30,27 @@ struct JsonKey
 	string fget;
 	size_t len;
 	bool required;
-	bool canBeStr;			// ¶ÔintegerĞÍµÄÊı¾İ£¬ÊÇ·ñ¿ÉÒÔÊÇstring
+	bool canBeStr;			// å¯¹integerå‹çš„æ•°æ®ï¼Œæ˜¯å¦å¯ä»¥æ˜¯string
 };
 
 struct ProtoMessage
 {
 	ProtoMessage():isArrray(false){}
 
-	string fileName;		// Ã»ÓĞºó×ºÃû,import,includeÊÇÊ¹ÓÃ
-	string name;			// messageµÄÃû³Æ£¬ºÍc++µÄÀàÃû¶ÔÓ¦
-	string fieldName;		// ×÷ÎªÆäËûmessageÖĞµÄÒ»¸ö×Ö¶ÎÊ±£¬×Ö¶ÎµÄÃû³Æ
-	hash_t hash;			// fieldnameµÄ¹şÏ£Öµ
-	string fadder;			// ×÷ÎªÆäËûmessageÖĞµÄÒ»¸ö×Ö¶Î£¬addº¯Êı/mutable
-	string fsize;			// ×÷ÎªÆäËûmessageÖĞµÄÒ»¸ö×Ö¶Î£¬sizeº¯Êı
-	string fget;			// ×÷ÎªÆäËûmessageÖĞµÄÒ»¸ö×Ö¶Î£¬getº¯Êı
-	bool isArrray;			// ×÷ÎªÆäËûmessageÖĞµÄÒ»¸ö×Ö¶ÎÊ±£¬ÊÇ·ñÎªÊı×é
+	string fileName;		// æ²¡æœ‰åç¼€å,import,includeæ˜¯ä½¿ç”¨
+	string name;			// messageçš„åç§°ï¼Œå’Œc++çš„ç±»åå¯¹åº”
+	string fieldName;		// ä½œä¸ºå…¶ä»–messageä¸­çš„ä¸€ä¸ªå­—æ®µæ—¶ï¼Œå­—æ®µçš„åç§°
+	hash_t hash;			// fieldnameçš„å“ˆå¸Œå€¼
+	string fadder;			// ä½œä¸ºå…¶ä»–messageä¸­çš„ä¸€ä¸ªå­—æ®µï¼Œaddå‡½æ•°/mutable
+	string fsize;			// ä½œä¸ºå…¶ä»–messageä¸­çš„ä¸€ä¸ªå­—æ®µï¼Œsizeå‡½æ•°
+	string fget;			// ä½œä¸ºå…¶ä»–messageä¸­çš„ä¸€ä¸ªå­—æ®µï¼Œgetå‡½æ•°
+	bool isArrray;			// ä½œä¸ºå…¶ä»–messageä¸­çš„ä¸€ä¸ªå­—æ®µæ—¶ï¼Œæ˜¯å¦ä¸ºæ•°ç»„
 
-	// ¼òµ¥ÀàĞÍ×Ö¶Î
+	// ç®€å•ç±»å‹å­—æ®µ
 	map<string , JsonKey> m_mapFields;
 
-	// ¸´ÔÓÀàĞÍ×Ö¶Î£¬¼´ÀàĞÍÊÇÆäËûmessage
-	// first:field name£¬second:message
+	// å¤æ‚ç±»å‹å­—æ®µï¼Œå³ç±»å‹æ˜¯å…¶ä»–message
+	// first:field nameï¼Œsecond:message
 	vector<ProtoMessage> m_VecSubMsg;
 
 	string m_strSchema;
@@ -77,7 +77,7 @@ public:
 private:
 	ifstream m_srcFile;
 	ofstream m_dstFile;
-	map<string, string> m_mapType;			// jsonÀàĞÍµ½protobufÀàĞÍµÄÓ³Éä
+	map<string, string> m_mapType;			// jsonç±»å‹åˆ°protobufç±»å‹çš„æ˜ å°„
 	string m_strFileNameNoExt;
 	ofstream m_log;
 };

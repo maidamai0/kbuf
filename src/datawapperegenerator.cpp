@@ -1,8 +1,6 @@
 #include "datawapperegenerator.h"
-#include "google/protobuf/util/json_util.h"
 #include "rapidjson/document.h"
 
-using namespace google::protobuf::util;
 using namespace rapidjson;
 
 DataWappereGenerator::DataWappereGenerator(const ProtoMessage &msg):
@@ -16,7 +14,7 @@ DataWappereGenerator::DataWappereGenerator(const ProtoMessage &msg):
 
 void DataWappereGenerator::GenerateDataWapper()
 {
-	// ²»ÊÇ´æÁÐ±íÀàÐÍ£¬²¢ÇÒÃ»ÓÐ¶¨ÒåEntryTime×Ö¶Î
+	// ä¸æ˜¯å­˜åˆ—è¡¨ç±»åž‹ï¼Œå¹¶ä¸”æ²¡æœ‰å®šä¹‰EntryTimeå­—æ®µ
 	if(m_msg.m_mapFields.find("EntryTime") != m_msg.m_mapFields.end())
 	{
 		m_bHasEntryTime = true;
@@ -462,7 +460,7 @@ void DataWappereGenerator::ToStringWriter()
 	WriteWithNewLine("writer.StartObject();");
 	WriteWithNewLine();
 
-	// ¼òµ¥ÀàÐÍ£¬¼òµ¥ÀàÐÍ²»ÊÇarray
+	// ç®€å•ç±»åž‹ï¼Œç®€å•ç±»åž‹ä¸æ˜¯array
 	if(!m_msg.m_mapFields.empty())
 	{
 		for(const auto & kv : m_msg.m_mapFields)
@@ -482,7 +480,7 @@ void DataWappereGenerator::ToStringWriter()
 
 				if(isEntryTime)
 				{
-					// ±£³ÖÒ»ÖÂ
+					// ä¿æŒä¸€è‡´
 					sprintf(m_charArrTmp, "if(read)\n"
 										  "{\n"
 										  "\tstring s = %s();\n"
@@ -535,7 +533,7 @@ void DataWappereGenerator::ToStringWriter()
 		}
 	}
 
-	// ¸´ºÏÀàÐÍ
+	// å¤åˆç±»åž‹
 	if(!m_msg.m_VecSubMsg.empty())
 	{
 		for(const auto &msg : m_msg.m_VecSubMsg)
@@ -652,7 +650,7 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 
 	WriteWithNewLine("__attribute__((unused)) auto end = fields.end();");
 
-	// Ó¦¸Ã²»»áÖ¸¶¨¸´ÖÆÀàÐÍ
+	// åº”è¯¥ä¸ä¼šæŒ‡å®šå¤åˆ¶ç±»åž‹
 	if(!m_msg.m_mapFields.empty())
 	{
 		for(const auto & kv : m_msg.m_mapFields)
@@ -678,7 +676,7 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 
 				if(isEntryTime)
 				{
-					// ±£³ÖÒ»ÖÂ
+					// ä¿æŒä¸€è‡´
 					sprintf(m_charArrTmp, "string s = %s();\n"
 										  "writer.String(PrettyTimeToRaw(s).c_str());",
 							"getEntryTime");
@@ -719,7 +717,7 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 		}
 	}
 
-	// ¸´ºÏÀàÐÍ
+	// å¤åˆç±»åž‹
 	if(!m_msg.m_VecSubMsg.empty())
 	{
 		for(const auto &msg : m_msg.m_VecSubMsg)
@@ -908,7 +906,7 @@ void DataWappereGenerator::getSet()
 	WriteWithNewLine();
 
 	/*
-	// ¼òµ¥ÀàÐÍ
+	// ç®€å•ç±»åž‹
 	if(!m_msg.m_mapFields.empty())
 	{
 		for(const auto kv : m_msg.m_mapFields)
@@ -946,7 +944,7 @@ void DataWappereGenerator::getSet()
 		}
 	}
 
-	// ¸´ÔÓÀàÐÍ£¬size£¬ get£¬ set
+	// å¤æ‚ç±»åž‹ï¼Œsizeï¼Œ getï¼Œ set
 	if(!m_msg.m_VecSubMsg.empty())
 	{
 		for(const auto msg : m_msg.m_VecSubMsg)
@@ -999,7 +997,7 @@ void DataWappereGenerator::getSet()
 	}
 */
 
-	// EntryTimeÌØÊâ´¦Àí
+	// EntryTimeç‰¹æ®Šå¤„ç†
 	if(m_bHasEntryTime)
 	{
 		// overload EntryTime set/get
@@ -1092,7 +1090,7 @@ void DataWappereGenerator::set(string fun, string type)
 				CaseValue(field);
 			}
 
-			// doubleÀàÐÍµÄÊý¾Ý£¬ÓÐÊ±¿ÉÄÜ»áÒÔintÐÎÊ½¸ø³ö£¬Òò´ËÔÚintÀïÒ²Ð´Ò»·Ý
+			// doubleç±»åž‹çš„æ•°æ®ï¼Œæœ‰æ—¶å¯èƒ½ä¼šä»¥intå½¢å¼ç»™å‡ºï¼Œå› æ­¤åœ¨inté‡Œä¹Ÿå†™ä¸€ä»½
 			if(type == "int64")
 			{
 				if(field.type == "double")
@@ -1101,7 +1099,7 @@ void DataWappereGenerator::set(string fun, string type)
 				}
 			}
 
-			// ÓÐÐ©×Ö¶ÎÊÇint£¬µ«ÊÇÓÐ¿ÉÄÜ»áÒÔstringµÄÐÎÊ½¸ø³ö
+			// æœ‰äº›å­—æ®µæ˜¯intï¼Œä½†æ˜¯æœ‰å¯èƒ½ä¼šä»¥stringçš„å½¢å¼ç»™å‡º
 			if(type == "string")
 			{
 				if((field.type == "int64") && field.canBeStr)
@@ -1158,7 +1156,7 @@ void DataWappereGenerator::CaseValue(const JsonKey &field, bool intBeStrinig)
 			sprintf(m_charArrTmp, "m_data->%s(value);", field.fset.c_str());
 		}
 	}
-	else if(intBeStrinig)	// Ä¿Ç°Ö»ÓÐintÐÍµÄ£¬»áÓÐÕâÖÖÇé¿ö
+	else if(intBeStrinig)	// ç›®å‰åªæœ‰intåž‹çš„ï¼Œä¼šæœ‰è¿™ç§æƒ…å†µ
 	{
 		// "3" -> 3
 		sprintf(m_charArrTmp, "m_data->%s(stringToInt(value));",field.fset.c_str());

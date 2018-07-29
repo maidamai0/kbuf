@@ -1,23 +1,27 @@
 /*
-  ÊÓÍ¼¿âÊı¾İÀàÉú³ÉÆ÷
-  ¹¦ÄÜÈçÏÂÎªÊäÈëjsonschema£¬Éú³ÉÒ»¸öÊı¾İÀà£¬¸ÃÊı¾İÀà¿ÉÒÔ½âÎö·ûºÏschema¹æ·¶µÄjson£¬Ö§³ÖĞòÁĞ»¯£¬·´ĞòÁĞ»¯£¬
-  Ò²¿ÉÒÔÉú³Éjson
+  è§†å›¾åº“æ•°æ®ç±»ç”Ÿæˆå™¨
+  åŠŸèƒ½å¦‚ä¸‹ä¸ºè¾“å…¥jsonschemaï¼Œç”Ÿæˆä¸€ä¸ªæ•°æ®ç±»ï¼Œè¯¥æ•°æ®ç±»å¯ä»¥è§£æç¬¦åˆschemaè§„èŒƒçš„jsonï¼Œæ”¯æŒåºåˆ—åŒ–ï¼Œååºåˆ—åŒ–ï¼Œ
+  ä¹Ÿå¯ä»¥ç”Ÿæˆjson
 
-  Êı¾İÀà·â×°ÁË¶ÔÓ¦µÄprotobuf£¬²¢Ê¹ÓÃrapidJson½øĞĞjsonÏà¹Ø²Ù×÷
+  æ•°æ®ç±»å°è£…äº†å¯¹åº”çš„protobufï¼Œå¹¶ä½¿ç”¨rapidJsonè¿›è¡Œjsonç›¸å…³æ“ä½œ
 
-  Ö§³Ö¶Ôjson½øĞĞĞ£Ñé£¬ÄÚÈİ°üÀ¨
-	1.	string ÄÚÈİÈ«²¿ÊÇÊı×ÖµÄ»¯£¬¸Ã×Ö¶Î¿ÉÒÔÊ¹ÓÃÊı×Ö»òÈ«ÎªÊı×ÖµÄstring
-	2.	Êı¾İ±àÂëĞ£Ñé£¬Êı¾İ±àÂëÈç¹û²»ÄÜÒÔutf8½øĞĞ½âÎö£¬Ôò·µ»Ø400
-	3.	schema Ö§³ÖµÄÊı¾İÀàĞÍÊÇstring number integer
-	4.	µ±schemaÖĞÓĞEntryTime×Ö¶ÎÊ±£¬ÈÏÎª¸Ã×Ö¶Î±íÊ¾Èë¿âÊ±¼ä£¬ÆäÊµÕâÑù²»ÊÇºÜºÏÀí£¬
-		Ó¦¸Ã¸Ä³É£¬ÎŞÂÛĞ­Òé/schemaÖĞÓĞÊ²Ã´×Ö¶Î£¬¶¼¸úÈë¿âÊ±¼äÃ»¹ØÏµ
-	5.	·²ÊÇÒÔTime(´óĞ¡Ğ´Ãô¸Ğ)½áÎ²µÄ×Ö¶Î£¬¶¼ÈÏÎªÆäÔÚesÖĞµÄ×Ö¶ÎÊ±Date
+  æ”¯æŒå¯¹jsonè¿›è¡Œæ ¡éªŒï¼Œå†…å®¹åŒ…æ‹¬
+	1.	string å†…å®¹å…¨éƒ¨æ˜¯æ•°å­—çš„åŒ–ï¼Œè¯¥å­—æ®µå¯ä»¥ä½¿ç”¨æ•°å­—æˆ–å…¨ä¸ºæ•°å­—çš„string
+	2.	æ•°æ®ç¼–ç æ ¡éªŒï¼Œæ•°æ®ç¼–ç å¦‚æœä¸èƒ½ä»¥utf8è¿›è¡Œè§£æï¼Œåˆ™è¿”å›400
+	3.	schema æ”¯æŒçš„æ•°æ®ç±»å‹æ˜¯string number integer
+	4.	å½“schemaä¸­æœ‰EntryTimeå­—æ®µæ—¶ï¼Œè®¤ä¸ºè¯¥å­—æ®µè¡¨ç¤ºå…¥åº“æ—¶é—´ï¼Œå…¶å®è¿™æ ·ä¸æ˜¯å¾ˆåˆç†ï¼Œ
+		åº”è¯¥æ”¹æˆï¼Œæ— è®ºåè®®/schemaä¸­æœ‰ä»€ä¹ˆå­—æ®µï¼Œéƒ½è·Ÿå…¥åº“æ—¶é—´æ²¡å…³ç³»
+	5.	å‡¡æ˜¯ä»¥Time(å¤§å°å†™æ•æ„Ÿ)ç»“å°¾çš„å­—æ®µï¼Œéƒ½è®¤ä¸ºå…¶åœ¨esä¸­çš„å­—æ®µæ—¶Date
 
 	// TODO
-	1. oneof
  */
-#include "datawapperegenerator.h"
 
+#include "datawapperegenerator.h"
+//#include "spdlog/spdlog.h"
+//#include "spdlog/sinks/sink.h"
+//#include "spdlog/sinks/stdout_color_sinks.h"
+//#include "spdlog/sinks/basic_file_sink.h"
+//#include "spdlog/logger.h"
 
 int main(int argc, char *argv[])
 {
@@ -27,6 +31,18 @@ int main(int argc, char *argv[])
 				"./kbuf filename";
 		return 1;
 	}
+
+//    shared_ptr<spdlog::sinks::sink> consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+//    consoleSink->set_level(spdlog::level::warn);
+//    consoleSink->set_pattern("[%^%l%$] %v");
+
+//    shared_ptr<spdlog::sinks::sink> fileSink = std::make_shared<spdlog::sinks::basic_file_sink>("compilelog.txt", true);
+//    fileSink->set_level(spdlog::level::trace);
+
+//    spdlog::logger logger("multi_sink", {consoleSink, fileSink});
+//    logger.set_level(spdlog::level::trace);
+
+//    logger.info("initliszed ok");
 
 	string name = argv[1];
 	protoGenerator pg(name);

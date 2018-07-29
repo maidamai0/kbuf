@@ -21,13 +21,13 @@ OBJDIR := obj
 SRCS := $(wildcard $(SRCDIR)/*.cpp)
 OBJS := $(subst $(SRCDIR)/,$(OBJDIR)/,$(SRCS:.cpp=.o))
 
-CXXFLAGS +=  -I./inc -I../
+CXXFLAGS +=  -I./inc
 
 .PHONY: all clean
 
-all: ../json/schema/kb
+all: kb
 
-../json/schema/kb: $(OBJS)
+kb: $(OBJS)
 	$(CXX) $(OBJS) -o $@
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
@@ -35,4 +35,4 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
 	$(CXX) $(CXXFLAGS) $< -o $@
 
 clean:
-	rm -f $(OBJDIR)/*.o ../json/schema/kb
+	rm -f $(OBJDIR)/*.o kb

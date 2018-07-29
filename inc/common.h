@@ -18,12 +18,6 @@ void ToLowCase(string &str);
 
 void ToUpperCase(string &str);
 
-///
-/// \brief 去除文件的后缀名
-/// \param 原始文件名
-///
-/// \remark 转换后的文件名是小写的
-///
 void NoExtention(string &fileName);
 
 constexpr hash_t get_str_hash(char const* str, hash_t last_value = basis)
@@ -35,6 +29,5 @@ constexpr hash_t operator "" _hash(char const* p, size_t)
 {
   return get_str_hash(p);
 }
-
 
 #endif // COMMON_H
