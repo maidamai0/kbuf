@@ -7,6 +7,8 @@ HEADERS +=  ./inc/protogenerator.h \
             ./inc/datawapperegenerator.h \
             ./inc/common.h \
             ./inc/spdlog/*.h \
+            ./inc/spdlog/details/*.h \
+            ./inc/spdlog/sinks/*.h \
 
 DISTFILES += makefile
 

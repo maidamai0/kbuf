@@ -16,12 +16,14 @@
 	// TODO
  */
 
+#include <initializer_list>
+
 #include "datawapperegenerator.h"
-//#include "spdlog/spdlog.h"
-//#include "spdlog/sinks/sink.h"
-//#include "spdlog/sinks/stdout_color_sinks.h"
-//#include "spdlog/sinks/basic_file_sink.h"
-//#include "spdlog/logger.h"
+#include "spdlog/spdlog.h"
+#include "spdlog/sinks/sink.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
+#include "spdlog/sinks/basic_file_sink.h"
+#include "spdlog/logger.h"
 
 int main(int argc, char *argv[])
 {
@@ -32,17 +34,17 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-//    shared_ptr<spdlog::sinks::sink> consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-//    consoleSink->set_level(spdlog::level::warn);
-//    consoleSink->set_pattern("[%^%l%$] %v");
+    shared_ptr<spdlog::sinks::sink> consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    consoleSink->set_level(spdlog::level::warn);
+    consoleSink->set_pattern("[%^%l%$] %v");
 
-//    shared_ptr<spdlog::sinks::sink> fileSink = std::make_shared<spdlog::sinks::basic_file_sink>("compilelog.txt", true);
-//    fileSink->set_level(spdlog::level::trace);
+    auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink>("compilelog.txt", true);
+    fileSink->set_level(spdlog::level::trace);
 
-//    spdlog::logger logger("multi_sink", {consoleSink, fileSink});
-//    logger.set_level(spdlog::level::trace);
+    spdlog::logger logger("multi_sink", {consoleSink, fileSink});
+    logger.set_level(spdlog::level::trace);
 
-//    logger.info("initliszed ok");
+    logger.info("initliszed ok");
 
 	string name = argv[1];
 	protoGenerator pg(name);
