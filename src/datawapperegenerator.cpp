@@ -2,6 +2,7 @@
 #include "rapidjson/document.h"
 
 using namespace rapidjson;
+extern spdlog::logger *g_logger;
 
 DataWappereGenerator::DataWappereGenerator(const ProtoMessage &msg):
 	m_msg(msg),
@@ -42,7 +43,7 @@ void DataWappereGenerator::GenerateDataWapper()
 
 	if(!m_dstFile.is_open())
 	{
-		printf("open %s failed\n", fileName.c_str());
+		g_logger->error("open %s failed\n", fileName.c_str());
 		return;
 	}
 
@@ -148,7 +149,7 @@ void DataWappereGenerator::GenerateDataWapper()
 
 	HeadGuard();
 
-	printf("%s generated\n", fileName.c_str());
+	g_logger->info("{} generated", fileName.c_str());
 
 	return;
 }
@@ -313,7 +314,13 @@ void DataWappereGenerator::createWithData()
 			name.c_str());
 	WriteWithNewLine(m_charArrTmp);
 
-	WriteWithNewLine("sp->InitSchema();\nreturn sp\n;");
+	// in case of msg has no entryTime
+	if(m_bHasEntryTime)
+	{
+		WriteWithNewLine("sp->m_data->set_entrytime(UnixTimeToPrettyTime(time(nullptr)));");
+	}
+
+	WriteWithNewLine("sp->InitSchema();\nreturn sp;\n");
 
 	--m_nIdent;
 	WriteWithNewLine("}");
@@ -525,7 +532,7 @@ void DataWappereGenerator::ToStringWriter()
 			}
 			else
 			{
-				printf("unkonwn type : %s\n", key.type.c_str());
+				g_logger->error("unkonwn type : %s\n", key.type.c_str());
 			}
 
 			WriteWithNewLine(m_charArrTmp);
@@ -708,7 +715,7 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 			}
 			else
 			{
-				printf("unkonwn type : %s\n", key.type.c_str());
+				g_logger->error("unkonwn type : %s\n", key.type.c_str());
 			}
 
 			WriteWithNewLine(m_charArrTmp);
@@ -848,6 +855,12 @@ void DataWappereGenerator::FromString()
 			m_msg.name.c_str());
 
 	WriteWithNewLine(m_charArrTmp);
+
+	// EntryTime
+	if(m_bHasEntryTime)
+	{
+		WriteWithNewLine("m_data->set_entrytime(RawTimeToPretty(time(nullptr)));");
+	}
 
 	WriteWithNewLine("return true;");
 
@@ -1144,7 +1157,9 @@ void DataWappereGenerator::CaseValue(const JsonKey &field, bool intBeStrinig)
 		if(isEntryTime)
 		{
 			// EntryTime should set by viid
-			sprintf(m_charArrTmp, "m_data->%s(RawTimeToPretty(time(nullptr)));", field.fset.c_str());
+			// TODO break;
+			// sprintf(m_charArrTmp, "m_data->%s(RawTimeToPretty(time(nullptr)));", field.fset.c_str());
+			sprintf(m_charArrTmp, "%s", "break;");
 		}
 		else if(isTime)
 		{

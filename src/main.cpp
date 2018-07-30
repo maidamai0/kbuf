@@ -31,20 +31,18 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-    spdlog::sink_ptr consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    consoleSink->set_level(spdlog::level::warn);
-    consoleSink->set_pattern("[%Y-%m-%d %H:%M:%S] [%^%l%$] %v");
+	spdlog::sink_ptr consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+	consoleSink->set_level(spdlog::level::warn);
+	consoleSink->set_pattern("[%Y-%m-%d %H:%M:%S] [%^%l%$] %v");
 
-    // shared_ptr<spdlog::sinks::sink> fileSink = std::make_shared<spdlog::sinks::basic_file_sink>(logname, true);
-    // auto fileSink = new spdlog::sinks::basic_file_sink_mt( "compilelog.txt", true);
-    spdlog::sink_ptr fileSink( new spdlog::sinks::basic_file_sink_mt( "compilelog.txt", true));
-    fileSink->set_level(spdlog::level::trace);
-    fileSink->set_pattern("[%Y-%m-%d %H:%M:%S] [%l] %v");
+	spdlog::sink_ptr fileSink( new spdlog::sinks::basic_file_sink_mt( "compilelog.txt", true));
+	fileSink->set_level(spdlog::level::trace);
+	fileSink->set_pattern("[%Y-%m-%d %H:%M:%S] [%l] %v");
 
-    g_logger = new spdlog::logger("multi_sink", {consoleSink, fileSink});
-    g_logger->set_level(spdlog::level::trace);
+	g_logger = new spdlog::logger("multi_sink", {consoleSink, fileSink});
+	g_logger->set_level(spdlog::level::trace);
 
-    g_logger->info("initialized ok");
+	g_logger->info("initialized ok");
 
 
 	string name = argv[1];

@@ -21,7 +21,7 @@ OBJDIR := obj
 SRCS := $(wildcard $(SRCDIR)/*.cpp)
 OBJS := $(subst $(SRCDIR)/,$(OBJDIR)/,$(SRCS:.cpp=.o))
 
-CXXFLAGS +=  -I./inc
+CXXFLAGS +=  -I./inc -I../
 
 .PHONY: all clean
 

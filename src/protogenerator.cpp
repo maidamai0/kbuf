@@ -33,14 +33,14 @@ bool protoGenerator::GeneratorProto()
 	m_log.open("log.txt");
 	if(!m_log.is_open())
 	{
-        g_logger->critical("open log failed\n");
+		g_logger->critical("open log failed\n");
 	}
 
 	if(!scan())
 	{
 		return false;
 	}
-    g_logger->info("scan complete\n");
+	g_logger->info("scan complete\n");
 
 	rapidjson::StringBuffer buffer;
 	PrettyWriter<StringBuffer> OutWriter(buffer);
@@ -48,12 +48,12 @@ bool protoGenerator::GeneratorProto()
 	string file(m_strFileNameNoExt);
 	file.append(".json");
 	GenerateSchema(file, OutWriter);
-	printf("schema generate\n");
+	g_logger->info("schema generate");
 
 	m_msg.m_strSchema = buffer.GetString();
 
 	write();
-	printf("write copmplete\n");
+	g_logger->info("write copmplete");
 
 	char cmd[1024] = {0};
 
@@ -62,7 +62,7 @@ bool protoGenerator::GeneratorProto()
 
 	chdir("../protobuf/proto");
 	getcwd(cwd, sizeof (cwd));
-	cout << "current path:" << cwd << endl;
+	g_logger->info("current path:{}", cwd);
 
 	sprintf(cmd, "protoc --cpp_out=../ $1 %s\n",dst.c_str());
 	if(system(cmd))
@@ -72,7 +72,7 @@ bool protoGenerator::GeneratorProto()
 
 	chdir("../");
 	getcwd(cwd, sizeof (cwd));
-	cout << "current path:" << cwd << endl;
+	g_logger->info("current path:{}", cwd);
 	// current path: json/protobuf
 
 	struct stat dirInfo;
@@ -99,8 +99,7 @@ bool protoGenerator::GeneratorProto()
 
 	chdir("../schema");
 	getcwd(cwd, sizeof (cwd));
-	cout << "current path:" << cwd << endl;
-	// current path: json/schema
+	g_logger->info("current path:{}", cwd);
 
 	return true;
 
@@ -111,13 +110,13 @@ bool protoGenerator::scan()
 	string src = m_strFileNameNoExt;
 	src.append(".json");
 
-    g_logger->info("scan {}", src.c_str());
+	g_logger->info("scan {}", src.c_str());
 
 	FILE *fp = fopen(src.c_str(), "rb");
 
 	if(!fp)
 	{
-        g_logger->error("open {} failed", src.c_str());
+		g_logger->error("open {} failed", src.c_str());
 		return false;
 	}
 
@@ -128,7 +127,7 @@ bool protoGenerator::scan()
 
 	if(d.HasParseError())
 	{
-		printf("invalid json file\n");
+		g_logger->error("invalid json file");
 		return false;
 	}
 
@@ -239,12 +238,7 @@ bool protoGenerator::scan()
 
 			if(type.empty())
 			{
-				string s(src);
-				s.append(" : ");
-				s.append(name);
-				s.append("has no type");
-				log(s);
-				printf("%s\n", s.c_str());
+				g_logger->warn("{}:{} has no type", src, name);
 				return false;
 			}
 		}
@@ -262,13 +256,7 @@ bool protoGenerator::scan()
 
 			if(!(object.value.HasMember("maxlength")))
 			{
-				string s(src);
-				s.append(" : ");
-				s.append(key.name);
-				s.append("missd maxlength");
-
-				log(s);
-				printf("%s\n", s.c_str());
+				g_logger->warn("{}:{} missd maxLength", src, key.name);
 			}
 			else
 			{
@@ -310,7 +298,7 @@ void protoGenerator::write()
 	m_dstFile.open(dst.c_str());
 	if(!m_dstFile.is_open())
 	{
-		printf("open %s failed\n", dst.c_str());
+		g_logger->error("open %s failed", dst.c_str());
 		return;
 	}
 
@@ -374,7 +362,7 @@ void protoGenerator::write()
 
 	m_dstFile << "}" << endl;
 
-	printf("%s generated\n", dst.c_str());
+	g_logger->info("{} generated", dst.c_str());
 
 	return;
 }
@@ -385,7 +373,7 @@ bool protoGenerator::GenerateSchema(string file, rapidjson::PrettyWriter<StringB
 
 	if(!fp)
 	{
-		printf("open %s failed\n", file.c_str());
+		g_logger->error("open {} failed", file.c_str());
 		return false;
 	}
 
@@ -396,7 +384,7 @@ bool protoGenerator::GenerateSchema(string file, rapidjson::PrettyWriter<StringB
 
 	if(d.HasParseError())
 	{
-		printf("invalid json file\n");
+		g_logger->error("invalid json file\n");
 		return false;
 	}
 
@@ -471,7 +459,7 @@ bool protoGenerator::WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringB
 	else
 	{
 		// should not be here!
-		printf("Field %s has Wrong type:%d\n",
+		g_logger->error("Field %s has Wrong type:%d\n",
 			   object.name.GetString(),
 			   object.value.GetType());
 	}
