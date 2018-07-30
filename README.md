@@ -1,5 +1,5 @@
 # kbuf
-generate a c++ class to parse/store/serial/deserial json
+generate a c++ class to parse/store/serial/deserial json in c++ class
 
 examples:
 1. ./kb test.json // schema
