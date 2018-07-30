@@ -7,6 +7,8 @@
 
 using namespace rapidjson;
 
+extern spdlog::logger *g_logger;
+
 __attribute__((unused)) static const char* kTypeNames[] =
 {
 	"Null", "False", "True", "Object", "Array", "String", "Number"
@@ -31,14 +33,14 @@ bool protoGenerator::GeneratorProto()
 	m_log.open("log.txt");
 	if(!m_log.is_open())
 	{
-		printf("open log failed\n");
+        g_logger->critical("open log failed\n");
 	}
 
 	if(!scan())
 	{
 		return false;
 	}
-	printf("scan complete\n");
+    g_logger->info("scan complete\n");
 
 	rapidjson::StringBuffer buffer;
 	PrettyWriter<StringBuffer> OutWriter(buffer);
@@ -109,13 +111,13 @@ bool protoGenerator::scan()
 	string src = m_strFileNameNoExt;
 	src.append(".json");
 
-	printf("scan %s\n", src.c_str());
+    g_logger->info("scan {}", src.c_str());
 
 	FILE *fp = fopen(src.c_str(), "rb");
 
 	if(!fp)
 	{
-		printf("open %s failed\n", src.c_str());
+        g_logger->error("open {} failed", src.c_str());
 		return false;
 	}
 
@@ -157,7 +159,7 @@ bool protoGenerator::scan()
 		}
 		else if(object.value.HasMember("$ref"))
 		{
-			// ·ÇÊı×é×Ö¶ÎµÄÒıÓÃ
+			// éæ•°ç»„å­—æ®µçš„å¼•ç”¨
 			string fileName = object.value["$ref"].GetString();
 
 			protoGenerator pg(fileName);
@@ -196,7 +198,7 @@ bool protoGenerator::scan()
 
 			if(type == "array")
 			{
-				// Êı×é×Ö¶ÎÒıÓÃ
+				// æ•°ç»„å­—æ®µå¼•ç”¨
 				assert(object.value.HasMember("items"));
 				assert(object.value["items"].HasMember("$ref"));
 				string fileName = object.value["items"]["$ref"].GetString();
@@ -291,7 +293,7 @@ bool protoGenerator::scan()
 	return true;
 }
 
-/// \note ÒòÎªÄ¬ÈÏÖµµÄ¹ØÏµ£¬ËùÓĞ×Ö¶Î¶¼Ê¹ÓÃrepeated
+/// \note å› ä¸ºé»˜è®¤å€¼çš„å…³ç³»ï¼Œæ‰€æœ‰å­—æ®µéƒ½ä½¿ç”¨repeated
 void protoGenerator::write()
 {
 	struct stat dirInfo;
@@ -328,7 +330,7 @@ void protoGenerator::write()
 	// message name
 	m_dstFile << "message " << m_msg.name << "{" << endl;
 
-	// ¼òµ¥ÀàĞÍµÄ×Ö¶Î
+	// ç®€å•ç±»å‹çš„å­—æ®µ
 	unsigned i = 1;
 	for(const auto &kv : m_msg.m_mapFields)
 	{
@@ -348,7 +350,7 @@ void protoGenerator::write()
 		++i;
 	}
 
-	// ¸´ÔÓÀàĞÍµÄ×Ö¶Î
+	// å¤æ‚ç±»å‹çš„å­—æ®µ
 	for(const auto &msg : m_msg.m_VecSubMsg)
 	{
 		string line;
