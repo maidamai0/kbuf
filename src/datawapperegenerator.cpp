@@ -567,12 +567,14 @@ void DataWappereGenerator::ToStringWriter()
 			else
 			{
 				sprintf(m_charArrTmp,
-						"auto p = m_data->%s();\n"
-						"auto sp = C%s::Create%sWithData(&p);\n"
-						"sp->setEntryTime(getEntryTime());\n"
-						"sp->setExpiredTime(getExpiredTime());\n"
-						"writer.String(\"%s\");\n"
-						"sp->ToStringWriter(writer, read);\n",
+						"if(m_data->has_%s())\n{\n"
+						"\tauto p = m_data->%s();\n"
+						"\tauto sp = C%s::Create%sWithData(&p);\n"
+						"\tsp->setEntryTime(getEntryTime());\n"
+						"\tsp->setExpiredTime(getExpiredTime());\n"
+						"\twriter.String(\"%s\");\n"
+						"\tsp->ToStringWriter(writer, read);\n}\n",
+						msg.fget.c_str(),
 						msg.fget.c_str(),
 						msg.name.c_str(),
 						msg.name.c_str(),
