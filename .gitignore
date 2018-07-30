@@ -3,3 +3,4 @@ obj/*
 compilelog.txt
 kb
 log.txt
+*.json
