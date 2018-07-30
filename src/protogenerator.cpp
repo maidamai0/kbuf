@@ -131,13 +131,30 @@ bool protoGenerator::scan()
 		return false;
 	}
 
-	assert(d.HasMember("title"));
+    if(!d.HasMember("title"))
+    {
+        g_logger->error("no title found in {}", src.c_str());
+        return false;
+    }
 	m_msg.name = d["title"].GetString();
 
-	assert(d.HasMember("type"));
-	assert(d.HasMember("properties"));
+    if(!d.HasMember("type"))
+    {
+        g_logger->error("no type found in {}", src.c_str());
+        return false;
+    }
 
-	assert(d["properties"].GetType() == kObjectType);
+    if(!d.HasMember("properties"))
+    {
+        g_logger->error("no properties found in {}", src.c_str());
+        return false;
+    }
+
+    if(d["properties"].GetType() != kObjectType)
+    {
+        g_logger->error("properties is not a object");
+        return false;
+    }
 
 	Value pop = d["properties"].GetObject();
 
@@ -256,7 +273,7 @@ bool protoGenerator::scan()
 
 			if(!(object.value.HasMember("maxlength")))
 			{
-				g_logger->warn("{}:{} missd maxLength", src, key.name);
+                g_logger->warn("{}:{} missed maxLength", src, key.name);
 			}
 			else
 			{
