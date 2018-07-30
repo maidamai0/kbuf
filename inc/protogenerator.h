@@ -41,7 +41,7 @@ struct JsonKey
 
 struct ProtoMessage
 {
-	ProtoMessage():isArrray(false){}
+    ProtoMessage():isArrray(false), modifyTime(0){}
 
 	string fileName;		// 没有后缀名,import,include是使用
 	string name;			// message的名称，和c++的类名对应
@@ -51,6 +51,7 @@ struct ProtoMessage
 	string fsize;			// 作为其他message中的一个字段，size函数
 	string fget;			// 作为其他message中的一个字段，get函数
 	bool isArrray;			// 作为其他message中的一个字段时，是否为数组
+    time_t modifyTime;      // schema file modify time
 
 	// 简单类型字段
 	map<string , JsonKey> m_mapFields;
@@ -74,8 +75,7 @@ private:
 	bool WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringBuffer> &w,
 						  const GenericMember<UTF8<char>, MemoryPoolAllocator<CrtAllocator>> &object);
 	void write();
-	bool isComplexType(string type);
-	void log(string str);
+    bool isComplexType(string type);
 
 public:
 	ProtoMessage m_msg;
@@ -85,7 +85,6 @@ private:
 	ofstream m_dstFile;
 	map<string, string> m_mapType;			// json类型到protobuf类型的映射
 	string m_strFileNameNoExt;
-	ofstream m_log;
 };
 
 #endif // PROTOGENERATOR_H

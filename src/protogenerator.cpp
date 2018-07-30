@@ -30,17 +30,11 @@ bool protoGenerator::GeneratorProto()
 {
 	char cwd[1024] = {0};
 
-	m_log.open("log.txt");
-	if(!m_log.is_open())
-	{
-		g_logger->critical("open log failed\n");
-	}
-
 	if(!scan())
 	{
 		return false;
 	}
-	g_logger->info("scan complete\n");
+    g_logger->trace("scan complete\n");
 
 	rapidjson::StringBuffer buffer;
 	PrettyWriter<StringBuffer> OutWriter(buffer);
@@ -48,12 +42,12 @@ bool protoGenerator::GeneratorProto()
 	string file(m_strFileNameNoExt);
 	file.append(".json");
 	GenerateSchema(file, OutWriter);
-	g_logger->info("schema generate");
+    g_logger->trace("schema generate");
 
 	m_msg.m_strSchema = buffer.GetString();
 
 	write();
-	g_logger->info("write copmplete");
+    g_logger->trace("write copmplete");
 
 	char cmd[1024] = {0};
 
@@ -62,7 +56,7 @@ bool protoGenerator::GeneratorProto()
 
 	chdir("../protobuf/proto");
 	getcwd(cwd, sizeof (cwd));
-	g_logger->info("current path:{}", cwd);
+    g_logger->trace("current path:{}", cwd);
 
 	sprintf(cmd, "protoc --cpp_out=../ $1 %s\n",dst.c_str());
 	if(system(cmd))
@@ -72,7 +66,7 @@ bool protoGenerator::GeneratorProto()
 
 	chdir("../");
 	getcwd(cwd, sizeof (cwd));
-	g_logger->info("current path:{}", cwd);
+    g_logger->trace("current path:{}", cwd);
 	// current path: json/protobuf
 
 	struct stat dirInfo;
@@ -99,7 +93,7 @@ bool protoGenerator::GeneratorProto()
 
 	chdir("../schema");
 	getcwd(cwd, sizeof (cwd));
-	g_logger->info("current path:{}", cwd);
+    g_logger->trace("current path:{}", cwd);
 
 	return true;
 
@@ -107,10 +101,33 @@ bool protoGenerator::GeneratorProto()
 
 bool protoGenerator::scan()
 {
+    struct stat stInfo;
+
+    string proto("../protobuf/proto/");
+    proto.append(m_strFileNameNoExt);
+    proto.append(".proto");
+    if(!stat(proto.c_str(), &stInfo))
+    {
+        // proto file exists
+        time_t protoMtime = stInfo.st_mtim.tv_sec;
+        string schema(m_strFileNameNoExt);
+        schema.append(".json");
+
+        stat(schema.c_str(), &stInfo);
+        time_t schemaMtime = stInfo.st_mtim.tv_sec;
+
+        if(protoMtime > schemaMtime)
+        {
+            // proto file is newer than schema file
+            g_logger->info("{} is newer than {}, skip...", proto, schema);
+            return true;
+        }
+    }
+
 	string src = m_strFileNameNoExt;
 	src.append(".json");
 
-	g_logger->info("scan {}", src.c_str());
+    g_logger->trace("scan {}", src.c_str());
 
 	FILE *fp = fopen(src.c_str(), "rb");
 
@@ -163,10 +180,6 @@ bool protoGenerator::scan()
 		string name = object.name.GetString();
 		string type;
 		bool canBeString = false;
-
-		string s(src);
-		s.append(name);
-		log(s);
 
 		if(object.value.HasMember("oneOf"))
 		{
@@ -298,11 +311,10 @@ bool protoGenerator::scan()
 	return true;
 }
 
-/// \note 因为默认值的关系，所有字段都使用repeated
 void protoGenerator::write()
 {
-	struct stat dirInfo;
-	if(stat("../protobuf/proto", &dirInfo))
+    struct stat stInfo;
+    if(stat("../protobuf/proto", &stInfo))
 	{
 		// dir not exist
 		system("mkdir -p ../protobuf/proto");
@@ -311,6 +323,25 @@ void protoGenerator::write()
 	string dst("../protobuf/proto/");
 	dst.append(m_strFileNameNoExt);
 	dst.append(".proto");
+
+    if(!stat(dst.c_str(), &stInfo))
+    {
+        // proto file exists
+        time_t protoMtime = stInfo.st_mtim.tv_sec;
+        string schema(m_strFileNameNoExt);
+        schema.append(".json");
+
+        stat(schema.c_str(), &stInfo);
+        time_t schemaMtime = stInfo.st_mtim.tv_sec;
+
+        if(protoMtime > schemaMtime)
+        {
+            // proto file is newer than schema file
+            g_logger->trace("{} is new than {} skip", dst, schema);
+            return;
+        }
+
+    }
 
 	m_dstFile.open(dst.c_str());
 	if(!m_dstFile.is_open())
@@ -379,7 +410,7 @@ void protoGenerator::write()
 
 	m_dstFile << "}" << endl;
 
-	g_logger->info("{} generated", dst.c_str());
+    g_logger->trace("{} generated", dst.c_str());
 
 	return;
 }
@@ -487,9 +518,4 @@ bool protoGenerator::WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringB
 bool protoGenerator::isComplexType(string type)
 {
 	return (type == "object" || type == "array");
-}
-
-void protoGenerator::log(string str)
-{
-	m_log << time(nullptr) << " : " << str << endl;
 }
