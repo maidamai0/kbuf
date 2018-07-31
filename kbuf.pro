@@ -11,6 +11,10 @@ HEADERS +=  ./inc/protogenerator.h \
             ./inc/spdlog/sinks/*.h \
             ./inc/spdlog/fmt/*.h \
             ./inc/spdlog/fmt/bundled/*.h \
+            ./inc/rapidjson/*.h \
+            ./inc/rapidjson/internal/*.h \
+            ./inc/rapidjson/error/*.h \
+            ./inc/rapidjson/msinttypes/*.h \
 
 DISTFILES += makefile
 
