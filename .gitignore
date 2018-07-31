@@ -3,4 +3,5 @@ obj/*
 compilelog.txt
 kb
 log.txt
-.qmake.stash*.json
+.qmake.stash
+*.json
