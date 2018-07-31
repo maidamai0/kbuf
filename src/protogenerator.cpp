@@ -44,7 +44,7 @@ bool protoGenerator::GeneratorProto()
 	PrettyWriter<StringBuffer> OutWriter(buffer);
 
 	GenerateSchema(file, OutWriter);
-	g_logger->trace("{} schema generate", file);
+	g_logger->trace("{} schema generated", file);
 
 	m_msg.m_strSchema = buffer.GetString();
 
@@ -61,7 +61,7 @@ bool protoGenerator::GeneratorProto()
 
 	chdir("../protobuf/proto");
 	getcwd(cwd, sizeof (cwd));
-    g_logger->trace("current path:{}", cwd);
+	g_logger->info("go {} to compile ptoto files...", cwd);
 
 	sprintf(cmd, "protoc --cpp_out=../ $1 %s\n",dst.c_str());
 	if(system(cmd))
@@ -71,8 +71,8 @@ bool protoGenerator::GeneratorProto()
 
 	chdir("../");
 	getcwd(cwd, sizeof (cwd));
-    g_logger->trace("current path:{}", cwd);
-	// current path: json/protobuf
+	g_logger->info("go {} to move files...", cwd);
+	// go to directory: json/protobuf
 
 	struct stat dirInfo;
 	if(stat("./src", &dirInfo))
@@ -98,7 +98,7 @@ bool protoGenerator::GeneratorProto()
 
 	chdir("../schema");
 	getcwd(cwd, sizeof (cwd));
-    g_logger->trace("current path:{}", cwd);
+	g_logger->info("return to {}...", cwd);
 
 	return true;
 

@@ -22,17 +22,35 @@
 
 spdlog::logger *g_logger = nullptr;
 
-int main(int argc, char *argv[])
+int compile(string schemaFileName)
 {
-	if(argc < 2)
+	protoGenerator pg(schemaFileName);
+
+	if(!pg.GeneratorProto())
 	{
-		cout << "usage:\n"
-				"./kbuf filename";
 		return 1;
 	}
 
+	char cwd[1024] = {0};
+	chdir("../");
+	getcwd(cwd, sizeof (cwd));
+	g_logger->info("go {} to generate head files...", cwd);    // json
+
+	DataWappereGenerator dw(pg.m_msg);
+	dw.GenerateDataWapper();
+
+	chdir("./schema");
+	getcwd(cwd, sizeof (cwd));
+	g_logger->info("return to {} for next file...", cwd);    // json/schema
+
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	// initialize LOG
 	spdlog::sink_ptr consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    consoleSink->set_level(spdlog::level::info);
+	consoleSink->set_level(spdlog::level::info);
 	consoleSink->set_pattern("[%^%l%$] %v");
 
 	spdlog::sink_ptr fileSink( new spdlog::sinks::basic_file_sink_mt( "compilelog.txt", true));
@@ -42,24 +60,35 @@ int main(int argc, char *argv[])
 	g_logger = new spdlog::logger("multi_sink", {consoleSink, fileSink});
 	g_logger->set_level(spdlog::level::trace);
 
-	string name = argv[1];
-	protoGenerator pg(name);
-
-	if(!pg.GeneratorProto())
+	ifstream makeLists;
+	if(argc < 2)
 	{
-		return 1;
+		struct stat fileStat;
+		if(stat("KMakeLists.txt", &fileStat))
+		{
+			g_logger->error("NO KMakeLists.txt found, Provide a 'KMakeLists.txt' which contains files to be read, or specify a filename as a argment to ./kb to read");
+			return 1;
+		}
+		else
+		{
+			makeLists.open("KMakeLists.txt");
+		}
 	}
 
-	char cwd[1024] = {0};
-	getcwd(cwd, sizeof (cwd));
-    g_logger->trace("current path:{}", cwd);    // json/schema/protobuf
-
-	chdir("../");	// json
-	getcwd(cwd, sizeof (cwd));
-    g_logger->trace("current path:{}", cwd);    // json/schema
-
-	DataWappereGenerator dw(pg.m_msg);
-	dw.GenerateDataWapper();
+	if(makeLists.is_open())
+	{
+		string file;
+		while (getline(makeLists, file))
+		{
+			g_logger->info("Compile {}...", file);
+			compile(file);
+			g_logger->info("Compile {} complete\n", file);
+		}
+	}
+	else
+	{
+		compile(argv[1]);
+	}
 
 	return 0;
 }
