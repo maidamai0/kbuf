@@ -15,6 +15,12 @@ DataWappereGenerator::DataWappereGenerator(const ProtoMessage &msg):
 
 void DataWappereGenerator::GenerateDataWapper()
 {
+    if(m_msg.name.empty())
+    {
+        g_logger->info("kb: Nothing to be done");
+        return;
+    }
+
 	// 不是存列表类型，并且没有定义EntryTime字段
 	if(m_msg.m_mapFields.find("EntryTime") != m_msg.m_mapFields.end())
 	{

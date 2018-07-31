@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 	}
 
 	spdlog::sink_ptr consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-	consoleSink->set_level(spdlog::level::warn);
+    consoleSink->set_level(spdlog::level::info);
 	consoleSink->set_pattern("[%Y-%m-%d %H:%M:%S] [%^%l%$] %v");
 
 	spdlog::sink_ptr fileSink( new spdlog::sinks::basic_file_sink_mt( "compilelog.txt", true));
@@ -55,11 +55,11 @@ int main(int argc, char *argv[])
 
 	char cwd[1024] = {0};
 	getcwd(cwd, sizeof (cwd));
-	cout << "current path:" << cwd << endl; // json/schema
+    g_logger->trace("current path:{}", cwd);    // json/schema/protobuf
 
 	chdir("../");	// json
 	getcwd(cwd, sizeof (cwd));
-	cout << "current path:" << cwd << endl;
+    g_logger->trace("current path:{}", cwd);    // json/schema
 
 	DataWappereGenerator dw(pg.m_msg);
 	dw.GenerateDataWapper();
