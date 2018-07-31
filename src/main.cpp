@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 
 	spdlog::sink_ptr consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     consoleSink->set_level(spdlog::level::info);
-	consoleSink->set_pattern("[%Y-%m-%d %H:%M:%S] [%^%l%$] %v");
+	consoleSink->set_pattern("[%^%l%$] %v");
 
 	spdlog::sink_ptr fileSink( new spdlog::sinks::basic_file_sink_mt( "compilelog.txt", true));
 	fileSink->set_level(spdlog::level::trace);
@@ -41,9 +41,6 @@ int main(int argc, char *argv[])
 
 	g_logger = new spdlog::logger("multi_sink", {consoleSink, fileSink});
 	g_logger->set_level(spdlog::level::trace);
-
-	g_logger->info("initialized ok");
-
 
 	string name = argv[1];
 	protoGenerator pg(name);

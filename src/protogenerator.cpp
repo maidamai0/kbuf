@@ -34,24 +34,29 @@ bool protoGenerator::GeneratorProto()
 	{
 		return false;
 	}
-    g_logger->trace("scan complete\n");
+
+	string file(m_strFileNameNoExt);
+	file.append(".json");
+
+	g_logger->trace("{} scan complete", file);
 
 	rapidjson::StringBuffer buffer;
 	PrettyWriter<StringBuffer> OutWriter(buffer);
 
-	string file(m_strFileNameNoExt);
-	file.append(".json");
 	GenerateSchema(file, OutWriter);
-    g_logger->trace("schema generate");
+	g_logger->trace("{} schema generate", file);
 
 	m_msg.m_strSchema = buffer.GetString();
 
 	write();
-    g_logger->trace("write copmplete");
+	string dst("../protobuf/proto/");
+	dst.append(m_strFileNameNoExt);
+	dst.append(".proto");
+	g_logger->trace("{} write copmplete", dst);
 
 	char cmd[1024] = {0};
 
-	string dst(m_strFileNameNoExt);
+	dst = m_strFileNameNoExt;
 	dst.append(".proto");
 
 	chdir("../protobuf/proto");
@@ -101,29 +106,6 @@ bool protoGenerator::GeneratorProto()
 
 bool protoGenerator::scan()
 {
-    struct stat stInfo;
-
-    string proto("../protobuf/proto/");
-    proto.append(m_strFileNameNoExt);
-    proto.append(".proto");
-    if(!stat(proto.c_str(), &stInfo))
-    {
-        // proto file exists
-        time_t protoMtime = stInfo.st_mtim.tv_sec;
-        string schema(m_strFileNameNoExt);
-        schema.append(".json");
-
-        stat(schema.c_str(), &stInfo);
-        time_t schemaMtime = stInfo.st_mtim.tv_sec;
-
-        if(protoMtime > schemaMtime)
-        {
-            // proto file is newer than schema file
-            g_logger->info("{} is newer than {}, skip...", proto, schema);
-            return true;
-        }
-    }
-
 	string src = m_strFileNameNoExt;
 	src.append(".json");
 
@@ -337,7 +319,7 @@ void protoGenerator::write()
         if(protoMtime > schemaMtime)
         {
             // proto file is newer than schema file
-            g_logger->trace("{} is new than {} skip", dst, schema);
+			g_logger->info("{} is newer than {} skip...", dst, schema);
             return;
         }
 
