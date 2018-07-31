@@ -49,7 +49,7 @@ void DataWappereGenerator::GenerateDataWapper()
 
 	if(!m_dstFile.is_open())
 	{
-		g_logger->error("open %s failed\n", fileName.c_str());
+		g_logger->error("open {} failed\n", fileName.c_str());
 		return;
 	}
 
@@ -604,8 +604,11 @@ void DataWappereGenerator::ToStringWriter()
 	++m_nIdent;
 
 	// entryTime
-	WriteWithNewLine("writer.String(\"EntryTime\");\n"
-					 "writer.String(getEntryTime().c_str());");
+	if(!m_bHasEntryTime)
+	{
+		WriteWithNewLine("writer.String(\"EntryTime\");\n"
+						 "writer.String(getEntryTime().c_str());");
+	}
 
 	// expiredTime
 	WriteWithNewLine("writer.String(\"KDExpiredDate\");\n"
