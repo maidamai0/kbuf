@@ -551,24 +551,23 @@ void DataWappereGenerator::ToStringWriter()
 	{
 		for(const auto &msg : m_msg.m_VecSubMsg)
 		{
-			WriteWithNewLine("{");
-			++m_nIdent;
-
 			if(msg.isArrray)
 			{
 				sprintf(m_charArrTmp,
-						"int cnt = m_data->%s();\n"
-						"writer.String(\"%s\");\n"
-						"writer.StartArray();\n"
-						"for (int i=0; i<cnt; ++i)\n"
+						"if(m_data->%s())\n"
 						"{\n"
-						"\tauto RawP = m_data->%s(i);\n"
-						"\tauto sp = C%s::Create%sWithData(&RawP);\n"
-						"\tsp->setEntryTime(getEntryTime());\n"
-						"\tsp->setExpiredTime(getExpiredTime());\n"
-						"\tsp->ToStringWriter(writer, read);\n"
-						"}\n"
-						"writer.EndArray();",
+						"\n"
+						"\twriter.String(\"%s\");\n"
+						"\twriter.StartArray();\n"
+						"\tfor(auto & RawP : *(m_data->mutable_%s()))\n"
+						"\t{\n"
+						"\t\tauto sp = C%s::Create%sWithData(&RawP);\n"
+						"\t\tsp->setEntryTime(getEntryTime());\n"
+						"\t\tsp->setExpiredTime(getExpiredTime());\n"
+						"\t\tsp->ToStringWriter(writer, read);\n"
+						"\t}\n"
+						"\twriter.EndArray();\n"
+						"}",
 						msg.fsize.c_str(),
 						msg.fieldName.c_str(),
 						msg.fget.c_str(),
@@ -593,8 +592,6 @@ void DataWappereGenerator::ToStringWriter()
 			}
 
 			WriteWithNewLine(m_charArrTmp);
-			--m_nIdent;
-			WriteWithNewLine("}");
 
 			WriteWithNewLine();
 		}

@@ -414,7 +414,7 @@ bool protoGenerator::GenerateSchema(string file, rapidjson::PrettyWriter<StringB
 
 	if(d.HasParseError())
 	{
-		g_logger->error("invalid json file\n");
+		g_logger->error("invalid json file:{}", file);
 		return false;
 	}
 
