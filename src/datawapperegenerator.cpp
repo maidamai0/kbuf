@@ -157,6 +157,8 @@ void DataWappereGenerator::GenerateDataWapper()
 
 	g_logger->info("{} generated", fileName.c_str());
 
+	m_dstFile.close();
+
 	return;
 }
 
@@ -395,7 +397,7 @@ void DataWappereGenerator::InitSchema()
 	}
 	else
 	{
-		sprintf(m_charArrTmp, "if(!g_%sDoc)\n"
+		sprintf(m_charArrTmp, "if(!g_%sSmDoc)\n"
 							  "{\n"
 							  "\tg_%sDoc = new Document;\n"
 							  "\tg_%sDoc->Parse(g_str%sSchema);\n"

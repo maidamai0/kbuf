@@ -115,7 +115,7 @@ bool protoGenerator::scan()
 
 	if(!fp)
 	{
-		g_logger->error("open {} failed", src.c_str());
+		g_logger->error("open {} failed:{}", src.c_str(), strerror(errno));
 		return false;
 	}
 
@@ -126,7 +126,7 @@ bool protoGenerator::scan()
 
 	if(d.HasParseError())
 	{
-		g_logger->error("invalid json file");
+		g_logger->error("invalid json file:{}", src);
 		return false;
 	}
 
@@ -394,6 +394,8 @@ void protoGenerator::write()
 
     g_logger->trace("{} generated", dst.c_str());
 
+	m_dstFile.close();
+
 	return;
 }
 
@@ -428,6 +430,8 @@ bool protoGenerator::GenerateSchema(string file, rapidjson::PrettyWriter<StringB
 	}
 
 	w.EndObject();
+
+	fclose(fp);
 
 	return true;
 }
