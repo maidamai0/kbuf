@@ -14,23 +14,29 @@ __attribute__((unused)) static const char* kTypeNames[] =
 	"Null", "False", "True", "Object", "Array", "String", "Number"
 };
 
-protoGenerator::protoGenerator(string src)
+/// \brief json type <-> protobuf type
+static map<string, string> g_typeMap =
 {
+    {"integer", "int64"},
+    {"number", "double"},
+    {"boolean", "bool"},
+    {"string", "string"}
+};
+
+protoGenerator::protoGenerator(string src):schemaModifyTime(0)
+{
+    schemaModifyTime = GetFileModifyTime(src);
+
 	size_t pos = src.find_last_of(".");
 	m_strFileNameNoExt = src.substr(0, pos);
 	m_msg.fileName = m_strFileNameNoExt;
-
-	m_mapType["integer"] = "int64";
-	m_mapType["number"]  = "double";
-	m_mapType["boolean"] = "bool";
-	m_mapType["string"] = "string";
 }
 
 bool protoGenerator::GeneratorProto()
 {
 	char cwd[1024] = {0};
 
-	if(!scan())
+    if(!Scan())
 	{
 		return false;
 	}
@@ -48,7 +54,7 @@ bool protoGenerator::GeneratorProto()
 
 	m_msg.m_strSchema = buffer.GetString();
 
-	write();
+    Write();
 	string dst("../protobuf/proto/");
 	dst.append(m_strFileNameNoExt);
 	dst.append(".proto");
@@ -104,7 +110,7 @@ bool protoGenerator::GeneratorProto()
 
 }
 
-bool protoGenerator::scan()
+bool protoGenerator::Scan()
 {
 	string src = m_strFileNameNoExt;
 	src.append(".json");
@@ -245,7 +251,7 @@ bool protoGenerator::scan()
 			}
 			else
 			{
-				type = m_mapType[object.value["type"].GetString()];
+                type = g_typeMap[object.value["type"].GetString()];
 			}
 
 			if(type.empty())
@@ -293,7 +299,7 @@ bool protoGenerator::scan()
 	return true;
 }
 
-void protoGenerator::write()
+void protoGenerator::Write()
 {
     struct stat stInfo;
     if(stat("../protobuf/proto", &stInfo))
@@ -497,7 +503,56 @@ bool protoGenerator::WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringB
 	return true;
 }
 
-bool protoGenerator::isComplexType(string type)
+bool protoGenerator::IsComplexType(string type)
 {
 	return (type == "object" || type == "array");
+}
+
+string protoGenerator::GetTypeFromSchemaFile(string schemaFile)
+{
+    string type;
+    FILE *fp = fopen(schemaFile.c_str(), "rb");
+
+    do
+    {
+        if(!fp)
+        {
+            g_logger->error("open {} failed", src.c_str());
+            break;
+        }
+
+        char readBuffer[65536];
+        FileReadStream is(fp, readBuffer, sizeof(readBuffer));
+        Document d;
+        d.ParseStream(is);
+
+        if(d.HasParseError())
+        {
+            g_logger->error("invalid json file:{}", schemaFile);
+            break;
+        }
+
+        if(!d.HasMember("title"))
+        {
+            g_logger->error("no title found in {}", src.c_str());
+            break;
+        }
+        type = d["title"].GetString();
+
+    }while(false);
+
+    fclose(fp);
+    return type;
+}
+
+time_t protoGenerator::GetFileModifyTime(string fileName)
+{
+    struct stat stInfo;
+    if(!stat(fileName.c_str(), &stInfo) != 0)
+    {
+        g_logger->trace("{} does not exist", fileName);
+        return 0;
+    }
+
+    return stInfo.st_mtim.tv_sec;
 }

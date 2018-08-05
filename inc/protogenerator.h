@@ -25,6 +25,23 @@
 using namespace std;
 using namespace rapidjson;
 
+/*
+ * direcotry tree
+ * json
+ *      schema          // schema files
+ *      include         // c++ class wrap protobuf class header files
+ *      protobuf        // protouf relate files, .proto, pb.h, pb.cpp
+ *          src         // .pb.cpp
+ *          proto       // .proto
+ *          include     //  .pb.cpp
+ *
+ * current path is json/schema/
+*/
+const string protobufProtoPath  =   "../protobuf/proto";
+const string protobufSrcPath    =   "../protobuf/src";
+const string protoufIncludePath =   "../protobuf/include";
+const string cppHeadPath        =   "../include";
+
 struct JsonKey
 {
 	JsonKey():len(0), required(false),canBeStr(false)
@@ -70,12 +87,14 @@ public:
 
 	bool GeneratorProto();
 private:
-	bool scan();
+    bool Scan();
 	bool GenerateSchema(string file, rapidjson::PrettyWriter<rapidjson::StringBuffer> &w);
 	bool WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringBuffer> &w,
 						  const GenericMember<UTF8<char>, MemoryPoolAllocator<CrtAllocator>> &object);
-	void write();
-    bool isComplexType(string type);
+    void Write();
+    bool IsComplexType(string type);
+    string GetTypeFromSchemaFile(string schemaFile);
+    time_t GetFileModifyTime(string fileName);
 
 public:
 	ProtoMessage m_msg;
@@ -83,8 +102,8 @@ public:
 private:
 	ifstream m_srcFile;
 	ofstream m_dstFile;
-	map<string, string> m_mapType;			// json类型到protobuf类型的映射
 	string m_strFileNameNoExt;
+    time_t schemaModifyTime;
 };
 
 #endif // PROTOGENERATOR_H
