@@ -43,6 +43,7 @@ public:
     logger(const logger &) = delete;
     logger &operator=(const logger &) = delete;
 
+    // log message varidic
     template<typename... Args>
     void log(level::level_enum lvl, const char *fmt, const Args &... args);
 

@@ -391,7 +391,8 @@ struct SchemaValidationContext {
 
 ///////////////////////////////////////////////////////////////////////////////
 // Schema
-
+// GenericSchemaDocument<Value>/SchemaDocument
+// is a defatult SchemaDocumenType
 template <typename SchemaDocumentType>
 class Schema {
 public:

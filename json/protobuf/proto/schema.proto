@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+
+message test1{
+	double	age = 1;
+	string	name = 2;
+}
