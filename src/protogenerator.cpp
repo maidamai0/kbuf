@@ -25,8 +25,6 @@ static map<string, string> g_typeMap =
 
 protoGenerator::protoGenerator(string src):schemaModifyTime(0)
 {
-    schemaModifyTime = GetFileModifyTime(src);
-
 	size_t pos = src.find_last_of(".");
 	m_strFileNameNoExt = src.substr(0, pos);
 	m_msg.fileName = m_strFileNameNoExt;
@@ -34,80 +32,63 @@ protoGenerator::protoGenerator(string src):schemaModifyTime(0)
 
 bool protoGenerator::GeneratorProto()
 {
-	char cwd[1024] = {0};
+     schemaModifyTime = GetFileModifyTime(src);
 
+    // scan json schema files
     if(!Scan())
 	{
+        g_logger->trace("error occured when scan {}, exit", file);
 		return false;
 	}
+    g_logger->trace("{} scan complete", file);
 
+    // convert json schema text to cpp strings
+    // Recursion
 	string file(m_strFileNameNoExt);
 	file.append(".json");
-
-	g_logger->trace("{} scan complete", file);
 
 	rapidjson::StringBuffer buffer;
 	PrettyWriter<StringBuffer> OutWriter(buffer);
 
-	GenerateSchema(file, OutWriter);
-	g_logger->trace("{} schema generated", file);
-
+    if(!GenerateSchema(file, OutWriter))
+    {
+        g_logger->error("{} schema negerate failed, exit");
+    }
+    g_logger->trace("{} schema generated", file);
 	m_msg.m_strSchema = buffer.GetString();
 
+    // generate proto files
     Write();
-	string dst("../protobuf/proto/");
-	dst.append(m_strFileNameNoExt);
+    g_logger->trace("{} write copmplete", dst);
+
+    // call 'proc' to generate *.pb.h, *.pb.cc
+    string dst = m_strFileNameNoExt;
 	dst.append(".proto");
-	g_logger->trace("{} write copmplete", dst);
+    SystemCmd("protoc --proto_path=%s --cpp_out=. %s\n",g_strProtobufProtoPath,dst.c_str());
 
-	char cmd[1024] = {0};
-
-	dst = m_strFileNameNoExt;
-	dst.append(".proto");
-
-	chdir("../protobuf/proto");
-	getcwd(cwd, sizeof (cwd));
-	g_logger->info("go {} to compile ptoto files...", cwd);
-
-	sprintf(cmd, "protoc --cpp_out=../ $1 %s\n",dst.c_str());
-	if(system(cmd))
-	{
-		return false;
-	}
-
-	chdir("../");
-	getcwd(cwd, sizeof (cwd));
-	g_logger->info("go {} to move files...", cwd);
-	// go to directory: json/protobuf
-
+    // move *.pb.cc to ../protobuf/src/*.pb.cpp
 	struct stat dirInfo;
-	if(stat("./src", &dirInfo))
+    if(stat(g_strProtobufSrcPath.c_str(), &dirInfo))
+	{
+        SystemCmd("mkdir -p %s", g_strProtobufSrcPath.c_str());
+	}
+    SystemCmd("mv %s.pb.cc %s/%s.pb.cpp",
+              m_strFileNameNoExt.c_str(),
+              g_strProtobufSrcPath.c_str(),
+              m_strFileNameNoExt.c_str());
+
+    // move *.pb.h to ../protobuf/include/*.pb.h
+    if(stat(g_strProtoufIncludePath.c_str(), &dirInfo))
 	{
 		// dir not exist
-		system("mkdir -p ./src");
+        SystemCmd("mkdir -p %s", g_strProtoufIncludePath);
 	}
-
-	sprintf(cmd, "mv %s.pb.cc ./src/%s.pb.cpp",
-			m_strFileNameNoExt.c_str(),
-			m_strFileNameNoExt.c_str());
-	system(cmd);
-
-	if(stat("./include", &dirInfo))
-	{
-		// dir not exist
-		system("mkdir -p ./include");
-	}
-	sprintf(cmd, "mv %s.pb.h ./include/%s.pb.h",
-			m_strFileNameNoExt.c_str(),
-			m_strFileNameNoExt.c_str());
-	system(cmd);
-
-	chdir("../schema");
-	getcwd(cwd, sizeof (cwd));
-	g_logger->info("return to {}...", cwd);
+    SystemCmd("mv %s.pb.h %s/%s.pb.h",
+              m_strFileNameNoExt.c_str(),
+              g_strProtoufIncludePath.c_str(),
+              m_strFileNameNoExt.c_str());
 
 	return true;
-
 }
 
 bool protoGenerator::Scan()
@@ -302,13 +283,13 @@ bool protoGenerator::Scan()
 void protoGenerator::Write()
 {
     struct stat stInfo;
-    if(stat("../protobuf/proto", &stInfo))
+    if(stat(g_strProtobufProtoPath.c_str(), &stInfo))
 	{
 		// dir not exist
-		system("mkdir -p ../protobuf/proto");
+        SystemCmd("mkfir -p %s", g_strProtobufProtoPath.c_str());
 	}
 
-	string dst("../protobuf/proto/");
+    string dst(g_strProtobufProtoPath);
 	dst.append(m_strFileNameNoExt);
 	dst.append(".proto");
 
@@ -400,6 +381,8 @@ void protoGenerator::Write()
 
     g_logger->trace("{} generated", dst.c_str());
 
+    m_dstFile.close();
+
 	return;
 }
 
@@ -434,6 +417,8 @@ bool protoGenerator::GenerateSchema(string file, rapidjson::PrettyWriter<StringB
 	}
 
 	w.EndObject();
+
+    fclose(fp);
 
 	return true;
 }
@@ -555,4 +540,21 @@ time_t protoGenerator::GetFileModifyTime(string fileName)
     }
 
     return stInfo.st_mtim.tv_sec;
+}
+
+void protoGenerator::SystemCmd(const char *fmt, ...)
+{
+    char cmd[1024] = {0};
+    va_list argptr;
+    va_start(argptr, fmt);
+    vsprintf(cmd, fmt, argptr);
+    va_end(argptr);
+
+    if(cmd[strlen(cmd) - 1] != '\n')
+    {
+        cmd[strlen(cmd)] = '\n';
+    }
+
+    printf("excute command: %s",cmd);
+    system(cmd);
 }

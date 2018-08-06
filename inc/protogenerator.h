@@ -8,6 +8,7 @@
 #include <sstream>
 #include <vector>
 #include <map>
+#include <cstdarg>
 
 #include "rapidjson/filereadstream.h"
 #include "rapidjson/document.h"
@@ -37,10 +38,10 @@ using namespace rapidjson;
  *
  * current path is json/schema/
 */
-const string protobufProtoPath  =   "../protobuf/proto";
-const string protobufSrcPath    =   "../protobuf/src";
-const string protoufIncludePath =   "../protobuf/include";
-const string cppHeadPath        =   "../include";
+const string g_strProtobufProtoPath  =   "../protobuf/proto/";
+const string g_strProtobufSrcPath    =   "../protobuf/src/";
+const string g_strProtoufIncludePath =   "../protobuf/include/";
+const string g_strCppHeadPath        =   "../include/";
 
 struct JsonKey
 {
@@ -95,6 +96,7 @@ private:
     bool IsComplexType(string type);
     string GetTypeFromSchemaFile(string schemaFile);
     time_t GetFileModifyTime(string fileName);
+    void SystemCmd(const char *cmd, ...);
 
 public:
 	ProtoMessage m_msg;
