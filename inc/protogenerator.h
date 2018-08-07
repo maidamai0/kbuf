@@ -44,7 +44,7 @@ struct ProtoMessage
     ProtoMessage():isArrray(false), modifyTime(0){}
 
 	string fileName;		// 没有后缀名,import,include是使用
-	string name;			// message的名称，和c++的类名对应
+	string name;			// title in json schema, proto message name is name_Proto, c++ class name is CName
 	string fieldName;		// 作为其他message中的一个字段时，字段的名称
 	hash_t hash;			// fieldname的哈希值
 	string fadder;			// 作为其他message中的一个字段，add函数/mutable
@@ -54,7 +54,7 @@ struct ProtoMessage
     time_t modifyTime;      // schema file modify time
 
 	// 简单类型字段
-	map<string , JsonKey> m_mapFields;
+	vector<JsonKey> m_vecFields;
 
 	// 复杂类型字段，即类型是其他message
 	// first:field name，second:message

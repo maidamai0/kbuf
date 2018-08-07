@@ -22,9 +22,12 @@ void DataWappereGenerator::GenerateDataWapper()
     }
 
 	// 不是存列表类型，并且没有定义EntryTime字段
-	if(m_msg.m_mapFields.find("EntryTime") != m_msg.m_mapFields.end())
+	for(const auto & key : m_msg.m_vecFields)
 	{
-		m_bHasEntryTime = true;
+		if(key.name == "EntryTime")
+		{
+			m_bHasEntryTime = true;
+		}
 	}
 
 	for(const auto & msg : m_msg.m_VecSubMsg)
@@ -476,12 +479,10 @@ void DataWappereGenerator::ToStringWriter()
 	WriteWithNewLine();
 
 	// 简单类型，简单类型不是array
-	if(!m_msg.m_mapFields.empty())
+	if(!m_msg.m_vecFields.empty())
 	{
-		for(const auto & kv : m_msg.m_mapFields)
+		for(const auto & key : m_msg.m_vecFields)
 		{
-			auto key = kv.second;
-
 			sprintf(m_charArrTmp, "writer.String(\"%s\");", key.name.c_str());
 			WriteWithNewLine(m_charArrTmp);
 
@@ -668,15 +669,13 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 	WriteWithNewLine("__attribute__((unused)) auto end = fields.end();");
 
 	// 应该不会指定复制类型
-	if(!m_msg.m_mapFields.empty())
+	if(!m_msg.m_vecFields.empty())
 	{
-		for(const auto & kv : m_msg.m_mapFields)
+		for(const auto & key : m_msg.m_vecFields)
 		{
-			auto key = kv.second;
-
 			sprintf(m_charArrTmp, "if(fields.find(\"%s\") != end)\n"
 								  "{",
-								  kv.first.c_str());
+								  key.name.c_str());
 			WriteWithNewLine(m_charArrTmp);
 			++m_nIdent;
 
@@ -1092,9 +1091,9 @@ void DataWappereGenerator::set(string fun, string type)
 	++m_nIdent;
 
 	bool hasType = false;
-	for(const auto &kv : m_msg.m_mapFields)
+	for(const auto &key : m_msg.m_vecFields)
 	{
-		if(kv.second.type == type)
+		if(key.type == type)
 		{
 			hasType = true;
 			break;
@@ -1105,10 +1104,8 @@ void DataWappereGenerator::set(string fun, string type)
 	{
 		WriteWithNewLine("switch (hKey) \n{");
 
-		for(const auto &kv : m_msg.m_mapFields)
+		for(const auto &field : m_msg.m_vecFields)
 		{
-			auto field = kv.second;
-
 			if(field.type == type)
 			{
 				CaseValue(field);

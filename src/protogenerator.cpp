@@ -246,6 +246,13 @@ bool protoGenerator::scan()
 			else
 			{
 				type = m_mapType[object.value["type"].GetString()];
+
+				string t = "Time";
+				bool isTime = (name.compare(name.length()-t.length(), t.length(), t) == 0);
+				if(isTime)
+				{
+					type = "int64";
+				}
 			}
 
 			if(type.empty())
@@ -285,7 +292,7 @@ bool protoGenerator::scan()
 
 		key.len = len;
 
-		m_msg.m_mapFields[key.name] = key;
+		m_msg.m_vecFields.push_back(key);
 	}
 
 	fclose(fp);
@@ -341,6 +348,17 @@ void protoGenerator::write()
 	for(const auto &msg : m_msg.m_VecSubMsg)
 	{
 		string import(msg.fileName);
+
+		// subimageinfo 特殊处理
+		if(msg.fieldName == "SubImageList")
+		{
+			import = "subimageinfoobject";
+		}
+		else if(msg.fieldName == "FeatureList")
+		{
+			import = "featureobject";
+		}
+
 		m_dstFile << "import \"" << import << ".proto" << "\";" << endl;
 	}
 	m_dstFile << endl;
@@ -350,10 +368,9 @@ void protoGenerator::write()
 
 	// 简单类型的字段
 	unsigned i = 1;
-	for(const auto &kv : m_msg.m_mapFields)
+	for(const auto &field : m_msg.m_vecFields)
 	{
 
-		auto field = kv.second;
 		string line;
 
 		line.append(field.type);
@@ -372,18 +389,38 @@ void protoGenerator::write()
 	for(const auto &msg : m_msg.m_VecSubMsg)
 	{
 		string line;
-
-		if(msg.isArrray)
+		do
 		{
-			line.append("repeated ");
-		}
+			// subimageinfo 特殊处理
+			if(msg.fieldName == "SubImageList")
+			{
+				line.append("repeated SubImageInfo_Proto SubImageList = ");
+				line.append(to_string((i)));
+				line.append(";");
+				break;
+			}
 
-		line.append(msg.name);
-		line.append("\t");
-		line.append(msg.fieldName);
-		line.append(" = ");
-		line.append(to_string(i));
-		line.append(";");
+			if(msg.fieldName == "FeatureList")
+			{
+				line.append("repeated Feature_Proto FeatureList = ");
+				line.append(to_string((i)));
+				line.append(";");
+				break;
+			}
+
+			if(msg.isArrray)
+			{
+				line.append("repeated ");
+			}
+
+			line.append(msg.name);
+			line.append("\t");
+			line.append(msg.fieldName);
+			line.append(" = ");
+			line.append(to_string(i));
+			line.append(";");
+
+		}while(false);
 
 		m_dstFile << "\t" << line << endl;
 

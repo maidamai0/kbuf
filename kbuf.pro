@@ -25,4 +25,6 @@ SOURCES += \
     ./src/main.cpp \
 
 
-INCLUDEPATH += ./inc/ \
+INCLUDEPATH +=	./inc/ \
+				./inc/rapidjson/ \
+				./inc/spdlog/ \
