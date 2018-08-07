@@ -27,7 +27,7 @@ using namespace rapidjson;
 
 struct JsonKey
 {
-	JsonKey():len(0), required(false),canBeStr(false)
+	JsonKey():len(0), required(false),canBeStr(false),isTime(false)
 	{}
 
 	string name;
@@ -37,6 +37,7 @@ struct JsonKey
 	size_t len;
 	bool required;
 	bool canBeStr;			// 对integer型的数据，是否可以是string
+	bool isTime;			// tim
 };
 
 struct ProtoMessage

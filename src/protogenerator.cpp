@@ -162,6 +162,7 @@ bool protoGenerator::scan()
 		string name = object.name.GetString();
 		string type;
 		bool canBeString = false;
+		bool isTime = false;
 
 		if(object.value.HasMember("oneOf"))
 		{
@@ -248,7 +249,7 @@ bool protoGenerator::scan()
 				type = m_mapType[object.value["type"].GetString()];
 
 				string t = "Time";
-				bool isTime = (name.compare(name.length()-t.length(), t.length(), t) == 0);
+				isTime = (name.compare(name.length()-t.length(), t.length(), t) == 0);
 				if(isTime)
 				{
 					type = "int64";
@@ -266,6 +267,7 @@ bool protoGenerator::scan()
 		key.name = name;
 		key.type = type;
 		key.canBeStr = canBeString;
+		key.isTime = isTime;
 
 		unsigned len = 0;
 		if(key.type == "string")

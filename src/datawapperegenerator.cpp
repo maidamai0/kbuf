@@ -328,7 +328,7 @@ void DataWappereGenerator::createWithData()
 	// in case of msg has no entryTime
 	if(m_bHasEntryTime)
 	{
-		WriteWithNewLine("sp->m_data->set_entrytime(UnixTimeToPrettyTime(time(nullptr)));");
+		WriteWithNewLine("sp->m_data->set_entrytime(time(nullptr));");
 	}
 
 	WriteWithNewLine("sp->InitSchema();\nreturn sp;\n");
@@ -489,6 +489,10 @@ void DataWappereGenerator::ToStringWriter()
 			if(key.type == "string")
 			{
 				sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
+				sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
+			}
+			else if(key.type == "int64")
+			{
 
 				string t = "Time";
 				bool isTime = (key.name.compare(key.name.length()-t.length(), t.length(), t) == 0);
@@ -499,37 +503,31 @@ void DataWappereGenerator::ToStringWriter()
 					// 保持一致
 					sprintf(m_charArrTmp, "if(read)\n"
 										  "{\n"
-										  "\tstring s = %s();\n"
-										  "\twriter.String(PrettyTimeToRaw(s).c_str());\n"
+										  "\twriter.String(%s(getEntryTime()));\n"
 										  "}\n"
 										  "else\n"
 										  "{\n"
-										  "\twriter.String(getEntryTime().c_str());\n"
+										  "\twriter.String(UnixTimeToPrettyTime(getEntryTime()));\n"
 										  "}",
-							"getEntryTime");
+							"UnixTimeToRawTime");
 				}
 				else if(isTime)
 				{
 					sprintf(m_charArrTmp,"if(read)\n"
 										 "{\n"
-										 "\tstring s = m_data->%s();\n"
-										 "\twriter.String(PrettyTimeToRaw(s).c_str());\n"
+										 "\twriter.String(UnixTimeToRawTime(m_data->%s()));\n"
 										 "}\n"
 										 "else\n"
 										 "{\n"
-										 "\twriter.String(m_data->%s().c_str());\n"
+										 "\twriter.String(UnixTimeToPrettyTime(m_data->%s()));\n"
 										 "}",
 							key.fget.c_str(),
 							key.fget.c_str());
 				}
 				else
 				{
-					sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
+					sprintf(m_charArrTmp, "writer.Int64(m_data->%s());", key.fget.c_str());
 				}
-			}
-			else if(key.type == "int64")
-			{
-				sprintf(m_charArrTmp, "writer.Int64(m_data->%s());", key.fget.c_str());
 			}
 			else if(key.type == "double")
 			{
@@ -554,6 +552,33 @@ void DataWappereGenerator::ToStringWriter()
 	{
 		for(const auto &msg : m_msg.m_VecSubMsg)
 		{
+
+			// special handle for subimagelist
+			if(msg.fieldName == "SubImageList")
+			{
+				sprintf(m_charArrTmp,
+						"if(m_data->subimagelist_size())\n"
+						"{\n"
+						"\n"
+						"\twriter.String(\"SubImageList\");\n"
+						"\twriter.StartArray();\n"
+						"\tfor(auto & RawP : *(m_data->mutable_mutable_subimagelist()))\n"
+						"\t{\n"
+						"\t\tauto sp = CSubImageInfo_Proto::%s(&RawP);\n"
+						"\t\tsp->setEntryTime(getEntryTime());\n"
+						"\t\tsp->setExpiredTime(getExpiredTime());\n"
+						"\t\tsp->ToStringWriter(writer, read);\n"
+						"\t}\n"
+						"\twriter.EndArray();\n"
+						"}",
+						"CreateSubImageInfo_ProtoWithData");
+
+				WriteWithNewLine(m_charArrTmp);
+
+				WriteWithNewLine();
+				continue;
+			}
+
 			if(msg.isArrray)
 			{
 				sprintf(m_charArrTmp,
@@ -658,7 +683,6 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 					 "{");
 	++m_nIdent;
 
-
 	WriteWithNewLine("rapidjson::StringBuffer buffer;\n"
 					 "rapidjson::Writer<StringBuffer> writer(buffer);\n");
 	WriteWithNewLine();
@@ -685,7 +709,10 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 			if(key.type == "string")
 			{
 				sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
-
+				sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
+			}
+			else if(key.type == "int64")
+			{
 				string t = "Time";
 				bool isTime = (key.name.compare(key.name.length()-t.length(), t.length(), t) == 0);
 				bool isEntryTime = (key.name == "EntryTime");
@@ -693,24 +720,33 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 				if(isEntryTime)
 				{
 					// 保持一致
-					sprintf(m_charArrTmp, "string s = %s();\n"
-										  "writer.String(PrettyTimeToRaw(s).c_str());",
-							"getEntryTime");
+					sprintf(m_charArrTmp, "if(read)\n"
+										  "{\n"
+										  "\twriter.String(%s(getEntryTime()));\n"
+										  "}\n"
+										  "else\n"
+										  "{\n"
+										  "\twriter.String(UnixTimeToPrettyTime(getEntryTime()));\n"
+										  "}",
+							"UnixTimeToRawTime");
 				}
 				else if(isTime)
 				{
-					sprintf(m_charArrTmp, "{\n\tstring s = m_data->%s();\n"
-										  "\twriter.String(PrettyTimeToRaw(s).c_str());\n}",
+					sprintf(m_charArrTmp,"if(read)\n"
+										 "{\n"
+										 "\twriter.String(UnixTimeToRawTime(m_data->%s()));\n"
+										 "}\n"
+										 "else\n"
+										 "{\n"
+										 "\twriter.String(UnixTimeToPrettyTime(m_data->%s()));\n"
+										 "}",
+							key.fget.c_str(),
 							key.fget.c_str());
 				}
 				else
 				{
-					sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
+					sprintf(m_charArrTmp, "writer.Int64(m_data->%s());", key.fget.c_str());
 				}
-			}
-			else if(key.type == "int64")
-			{
-				sprintf(m_charArrTmp, "writer.Int64(m_data->%s());", key.fget.c_str());
 			}
 			else if(key.type == "double")
 			{
@@ -740,6 +776,18 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 		{
 			WriteWithNewLine("{");
 			++m_nIdent;
+
+			if(msg.fieldName == "SubImageList")
+			{
+				// TODO complete this
+				continue;
+			}
+
+			if(msg.fieldName == "FeatureList")
+			{
+				// TODO complete this
+				continue;
+			}
 
 			if(msg.isArrray)
 			{
@@ -867,7 +915,7 @@ void DataWappereGenerator::FromString()
 	// EntryTime
 	if(m_bHasEntryTime)
 	{
-		WriteWithNewLine("m_data->set_entrytime(RawTimeToPretty(time(nullptr)));");
+		WriteWithNewLine("m_data->set_entrytime(time(nullptr));");
 	}
 
 	WriteWithNewLine("return true;");
@@ -1024,8 +1072,8 @@ void DataWappereGenerator::getSet()
 	if(m_bHasEntryTime)
 	{
 		// overload EntryTime set/get
-		WriteWithNewLine("void setEntryTime(const string src) {m_data->set_entrytime(src);}\n"
-						 "string getEntryTime() const {return m_data->entrytime();}");
+		WriteWithNewLine("void setEntryTime(const time_t src) {m_data->set_entrytime(src);}\n"
+						 "time_t getEntryTime() const {return m_data->entrytime();}");
 	}
 }
 
@@ -1048,18 +1096,45 @@ void DataWappereGenerator::ObjectBegin()
 			string lowCaseMessageName(msg.name);
 			ToLowCase(lowCaseMessageName);
 
-			sprintf(m_charArrTmp,
-					"case \"%s\"_hash:// %lu\n"
-					"\t{\n"
-					"\t\tauto p = m_data->%s();\n"
-					"\t\tnewPtr = C%s::Create%sWithData(p);\n"
-					"\t\tbreak;\n"
-					"\t}",
-					msg.fieldName.c_str(),
-					get_str_hash(msg.fieldName.c_str()),
-					msg.fadder.c_str(),
-					msg.name.c_str(),
-					msg.name.c_str());
+
+			// featureList, subImageList special handle
+			if(msg.fieldName == "FeatureObject")
+			{
+				sprintf(m_charArrTmp,
+						"case \"FeatureObject\"_hash:// %lu\n"
+						"\t{\n"
+						"\t\tauto p = m_data->add_featurelist();\n"
+						"\t\tnewPtr = CFeature_Proto::CreateFeature_ProtoWithData(p);\n"
+						"\t\tbreak;\n"
+						"\t}",
+						get_str_hash("FeatureObject"));
+
+			}else if(msg.fieldName == "SubImageInfoObject")
+			{
+				sprintf(m_charArrTmp,
+						"case \"SubImageInfoObject\"_hash:// %lu\n"
+						"\t{\n"
+						"\t\tauto p = m_data->add_subimagelist();\n"
+						"\t\tnewPtr = CSubImageInfo_Proto::CreateSubImageInfo_ProtoWithData(p);\n"
+						"\t\tbreak;\n"
+						"\t}",
+						get_str_hash("SubImageInfoObject"));
+
+			}else
+			{
+				sprintf(m_charArrTmp,
+						"case \"%s\"_hash:// %lu\n"
+						"\t{\n"
+						"\t\tauto p = m_data->%s();\n"
+						"\t\tnewPtr = C%s::Create%sWithData(p);\n"
+						"\t\tbreak;\n"
+						"\t}",
+						msg.fieldName.c_str(),
+						get_str_hash(msg.fieldName.c_str()),
+						msg.fadder.c_str(),
+						msg.name.c_str(),
+						msg.name.c_str());
+			}
 
 			WriteWithNewLine(m_charArrTmp);
 		}
@@ -1123,7 +1198,7 @@ void DataWappereGenerator::set(string fun, string type)
 			// 有些字段是int，但是有可能会以string的形式给出
 			if(type == "string")
 			{
-				if((field.type == "int64") && field.canBeStr)
+				if((field.type == "int64") && (field.canBeStr || field.isTime))
 				{
 					CaseValue(field, true);
 				}
@@ -1156,23 +1231,26 @@ void DataWappereGenerator::CaseValue(const JsonKey &field, bool intBeStrinig)
 
 	if(field.type == "string")
 	{
-		string t = "Time";
-		bool isTime = (field.name.compare(field.name.length()-t.length(), t.length(), t) == 0);
-		bool isEntryTime = (field.name == "EntryTime");
+		if(field.type == "int64")
+		{
+			string t = "Time";
+			bool isTime = (field.name.compare(field.name.length()-t.length(), t.length(), t) == 0);
+			bool isEntryTime = (field.name == "EntryTime");
 
-		if(isEntryTime)
-		{
-			// EntryTime should set by viid
-			// TODO break;
-			// sprintf(m_charArrTmp, "m_data->%s(RawTimeToPretty(time(nullptr)));", field.fset.c_str());
-			sprintf(m_charArrTmp, "%s", "break;");
-		}
-		else if(isTime)
-		{
-			// xxTime, string as YYYYMMDDHHMMSS
-			sprintf(m_charArrTmp, "{\n\tstring s(value);\n"
-								  "\tm_data->%s(RawTimeToPretty(s));\n}",
-					field.fset.c_str());
+			if(isEntryTime)
+			{
+				// EntryTime should set by viid
+				// TODO break;
+				// sprintf(m_charArrTmp, "m_data->%s(RawTimeToPretty(time(nullptr)));", field.fset.c_str());
+				sprintf(m_charArrTmp, "%s", "break;");
+			}
+			else if(isTime)
+			{
+				// xxTime, string as YYYYMMDDHHMMSS
+				sprintf(m_charArrTmp, "{\n\tstring s(value);\n"
+									  "\tm_data->%s(RawTimeToPretty(s));\n}",
+						field.fset.c_str());
+			}
 		}
 		else
 		{
@@ -1181,8 +1259,15 @@ void DataWappereGenerator::CaseValue(const JsonKey &field, bool intBeStrinig)
 	}
 	else if(intBeStrinig)	// 目前只有int型的，会有这种情况
 	{
-		// "3" -> 3
-		sprintf(m_charArrTmp, "m_data->%s(stringToInt(value));",field.fset.c_str());
+		if(field.isTime)
+		{
+			sprintf(m_charArrTmp, "m_data->%s(RawTimeToUnixTime(value));",field.fset.c_str());
+		}
+		else
+		{
+			// "3" -> 3
+			sprintf(m_charArrTmp, "m_data->%s(stringToInt(value));",field.fset.c_str());
+		}
 	}
 	else
 	{
