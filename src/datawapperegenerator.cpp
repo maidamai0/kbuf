@@ -305,7 +305,7 @@ void DataWappereGenerator::create()
 			name.c_str(), m_msg.name.c_str());
 	WriteWithNewLine(m_charArrTmp);
 
-	WriteWithNewLine("sp->InitSchema();\nreturn sp\n;");
+	WriteWithNewLine("sp->InitSchema();\nreturn sp;\n");
 
 	--m_nIdent;
 	WriteWithNewLine("}");
@@ -503,11 +503,11 @@ void DataWappereGenerator::ToStringWriter()
 					// 保持一致
 					sprintf(m_charArrTmp, "if(read)\n"
 										  "{\n"
-										  "\twriter.String(%s(getEntryTime()));\n"
+										  "\twriter.String(%s(getEntryTime()).c_str());\n"
 										  "}\n"
 										  "else\n"
 										  "{\n"
-										  "\twriter.String(UnixTimeToPrettyTime(getEntryTime()));\n"
+										  "\twriter.String(UnixTimeToPrettyTime(getEntryTime()).c_str());\n"
 										  "}",
 							"UnixTimeToRawTime");
 				}
@@ -515,11 +515,11 @@ void DataWappereGenerator::ToStringWriter()
 				{
 					sprintf(m_charArrTmp,"if(read)\n"
 										 "{\n"
-										 "\twriter.String(UnixTimeToRawTime(m_data->%s()));\n"
+										 "\twriter.String(UnixTimeToRawTime(m_data->%s()).c_str());\n"
 										 "}\n"
 										 "else\n"
 										 "{\n"
-										 "\twriter.String(UnixTimeToPrettyTime(m_data->%s()));\n"
+										 "\twriter.String(UnixTimeToPrettyTime(m_data->%s()).c_str());\n"
 										 "}",
 							key.fget.c_str(),
 							key.fget.c_str());
@@ -562,7 +562,7 @@ void DataWappereGenerator::ToStringWriter()
 						"\n"
 						"\twriter.String(\"SubImageList\");\n"
 						"\twriter.StartArray();\n"
-						"\tfor(auto & RawP : *(m_data->mutable_mutable_subimagelist()))\n"
+						"\tfor(auto & RawP : *(m_data->mutable_subimagelist()))\n"
 						"\t{\n"
 						"\t\tauto sp = CSubImageInfo_Proto::%s(&RawP);\n"
 						"\t\tsp->setEntryTime(getEntryTime());\n"
@@ -572,6 +572,31 @@ void DataWappereGenerator::ToStringWriter()
 						"\twriter.EndArray();\n"
 						"}",
 						"CreateSubImageInfo_ProtoWithData");
+
+				WriteWithNewLine(m_charArrTmp);
+
+				WriteWithNewLine();
+				continue;
+			}
+
+			if(msg.fieldName == "FeatureList")
+			{
+				sprintf(m_charArrTmp,
+						"if(m_data->featurelist_size())\n"
+						"{\n"
+						"\n"
+						"\twriter.String(\"FeatureList\");\n"
+						"\twriter.StartArray();\n"
+						"\tfor(auto & RawP : *(m_data->mutable_featurelist()))\n"
+						"\t{\n"
+						"\t\tauto sp = CFeature_Proto::%s(&RawP);\n"
+						"\t\tsp->setEntryTime(getEntryTime());\n"
+						"\t\tsp->setExpiredTime(getExpiredTime());\n"
+						"\t\tsp->ToStringWriter(writer, read);\n"
+						"\t}\n"
+						"\twriter.EndArray();\n"
+						"}",
+						"CreateFeature_ProtoWithData");
 
 				WriteWithNewLine(m_charArrTmp);
 
@@ -632,12 +657,12 @@ void DataWappereGenerator::ToStringWriter()
 	if(!m_bHasEntryTime)
 	{
 		WriteWithNewLine("writer.String(\"EntryTime\");\n"
-						 "writer.String(getEntryTime().c_str());");
+						 "writer.String(UnixTimeToPrettyTime(getEntryTime()).c_str());");
 	}
 
 	// expiredTime
 	WriteWithNewLine("writer.String(\"KDExpiredDate\");\n"
-					 "writer.String(getExpiredTime().c_str());");
+					 "writer.String(UnixTimeToPrettyTime(getExpiredTime()).c_str());");
 
 	--m_nIdent;
 	WriteWithNewLine("}");
@@ -720,27 +745,12 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 				if(isEntryTime)
 				{
 					// 保持一致
-					sprintf(m_charArrTmp, "if(read)\n"
-										  "{\n"
-										  "\twriter.String(%s(getEntryTime()));\n"
-										  "}\n"
-										  "else\n"
-										  "{\n"
-										  "\twriter.String(UnixTimeToPrettyTime(getEntryTime()));\n"
-										  "}",
+					sprintf(m_charArrTmp, "writer.String(%s(getEntryTime()).c_str());\n",
 							"UnixTimeToRawTime");
 				}
 				else if(isTime)
 				{
-					sprintf(m_charArrTmp,"if(read)\n"
-										 "{\n"
-										 "\twriter.String(UnixTimeToRawTime(m_data->%s()));\n"
-										 "}\n"
-										 "else\n"
-										 "{\n"
-										 "\twriter.String(UnixTimeToPrettyTime(m_data->%s()));\n"
-										 "}",
-							key.fget.c_str(),
+					sprintf(m_charArrTmp,"writer.String(UnixTimeToRawTime(m_data->%s()).c_str());\n",
 							key.fget.c_str());
 				}
 				else
@@ -774,9 +784,6 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 	{
 		for(const auto &msg : m_msg.m_VecSubMsg)
 		{
-			WriteWithNewLine("{");
-			++m_nIdent;
-
 			if(msg.fieldName == "SubImageList")
 			{
 				// TODO complete this
@@ -788,6 +795,9 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 				// TODO complete this
 				continue;
 			}
+
+			WriteWithNewLine("{");
+			++m_nIdent;
 
 			if(msg.isArrray)
 			{
@@ -1098,7 +1108,7 @@ void DataWappereGenerator::ObjectBegin()
 
 
 			// featureList, subImageList special handle
-			if(msg.fieldName == "FeatureObject")
+			if(msg.fieldName == "FeatureList")
 			{
 				sprintf(m_charArrTmp,
 						"case \"FeatureObject\"_hash:// %lu\n"
@@ -1109,7 +1119,7 @@ void DataWappereGenerator::ObjectBegin()
 						"\t}",
 						get_str_hash("FeatureObject"));
 
-			}else if(msg.fieldName == "SubImageInfoObject")
+			}else if(msg.fieldName == "SubImageList")
 			{
 				sprintf(m_charArrTmp,
 						"case \"SubImageInfoObject\"_hash:// %lu\n"
