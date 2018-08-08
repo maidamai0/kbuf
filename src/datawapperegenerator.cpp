@@ -114,8 +114,8 @@ void DataWappereGenerator::GenerateDataWapper()
 	FromString();
 	WriteWithNewLine();
 
-	FromStringNoCheck();
-	WriteWithNewLine();
+//	FromStringNoCheck();
+//	WriteWithNewLine();
 
 	FromStringProto();
 	WriteWithNewLine();
@@ -362,7 +362,7 @@ void DataWappereGenerator::construct()
 	++m_nIdent;
 
 	WriteWithNewLine("m_data = data;\n"
-					 "m_bOutData = false;\n");
+					 "m_bOutData = true;\n");
 
 	WriteWithNewLine("InitSchema();");
 
@@ -891,9 +891,8 @@ void DataWappereGenerator::FromString()
 	++m_nIdent;
 
 	sprintf(m_charArrTmp,
-			"auto sp = C%s::Create%sWithData(this->m_data);\n"
-			"viidJsonReadHandler handler(sp);\n",
-			m_msg.name.c_str(),
+			"auto p = new C%s(this->m_data);\n"
+			"viidJsonReadHandler handler(p);\n",
 			m_msg.name.c_str());
 
 	WriteWithNewLine(m_charArrTmp);
@@ -1089,7 +1088,7 @@ void DataWappereGenerator::getSet()
 
 void DataWappereGenerator::ObjectBegin()
 {
-	WriteWithNewLine("bool ObjectBegin(hash_t hKey, SP_Data &newPtr)\n{");
+	WriteWithNewLine("bool ObjectBegin(hash_t hKey, CViidBaseData *&newPtr)\n{");
 	++m_nIdent;
 
 	if(!m_msg.m_VecSubMsg.empty())
@@ -1114,7 +1113,7 @@ void DataWappereGenerator::ObjectBegin()
 						"case \"FeatureObject\"_hash:// %lu\n"
 						"\t{\n"
 						"\t\tauto p = m_data->add_featurelist();\n"
-						"\t\tnewPtr = CFeature_Proto::CreateFeature_ProtoWithData(p);\n"
+						"\t\tnewPtr = new CFeature_Proto(p);\n"
 						"\t\tbreak;\n"
 						"\t}",
 						get_str_hash("FeatureObject"));
@@ -1125,7 +1124,7 @@ void DataWappereGenerator::ObjectBegin()
 						"case \"SubImageInfoObject\"_hash:// %lu\n"
 						"\t{\n"
 						"\t\tauto p = m_data->add_subimagelist();\n"
-						"\t\tnewPtr = CSubImageInfo_Proto::CreateSubImageInfo_ProtoWithData(p);\n"
+						"\t\tnewPtr = new CSubImageInfo_Proto(p);\n"
 						"\t\tbreak;\n"
 						"\t}",
 						get_str_hash("SubImageInfoObject"));
@@ -1136,13 +1135,12 @@ void DataWappereGenerator::ObjectBegin()
 						"case \"%s\"_hash:// %lu\n"
 						"\t{\n"
 						"\t\tauto p = m_data->%s();\n"
-						"\t\tnewPtr = C%s::Create%sWithData(p);\n"
+						"\t\tnewPtr = new C%s(p);\n"
 						"\t\tbreak;\n"
 						"\t}",
 						msg.fieldName.c_str(),
 						get_str_hash(msg.fieldName.c_str()),
 						msg.fadder.c_str(),
-						msg.name.c_str(),
 						msg.name.c_str());
 			}
 
