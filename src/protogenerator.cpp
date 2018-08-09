@@ -249,10 +249,13 @@ bool protoGenerator::scan()
 				type = m_mapType[object.value["type"].GetString()];
 
 				string t = "Time";
-				isTime = (name.compare(name.length()-t.length(), t.length(), t) == 0);
-				if(isTime)
+				if(name.length() > t.length())
 				{
-					type = "int64";
+					isTime = (name.compare(name.length()-t.length(), t.length(), t) == 0);
+					if(isTime)
+					{
+						type = "int64";
+					}
 				}
 			}
 

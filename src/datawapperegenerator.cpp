@@ -90,9 +90,6 @@ void DataWappereGenerator::GenerateDataWapper()
 	createWithData();
 	WriteWithNewLine();
 
-	Init();
-	WriteWithNewLine();
-
 	destruct();
 	WriteWithNewLine();
 
@@ -299,13 +296,10 @@ void DataWappereGenerator::create()
 	WriteWithNewLine(m_charArrTmp);
 	++m_nIdent;
 
-	sprintf(m_charArrTmp, "sharedPtr sp(new C%s);\n"
-						  "sp->m_data = new %s;\n"
-						  "sp->m_bOutData = false;\n",
-			name.c_str(), m_msg.name.c_str());
+	sprintf(m_charArrTmp, "sharedPtr sp(new C%s);\n",
+			name.c_str());
 	WriteWithNewLine(m_charArrTmp);
-
-	WriteWithNewLine("sp->InitSchema();\nreturn sp;\n");
+	WriteWithNewLine("return sp;\n");
 
 	--m_nIdent;
 	WriteWithNewLine("}");
@@ -319,10 +313,7 @@ void DataWappereGenerator::createWithData()
 	WriteWithNewLine(m_charArrTmp);
 	++m_nIdent;
 
-	sprintf(m_charArrTmp, "sharedPtr sp(new C%s);\n"
-						  "sp->m_data = data;\n"
-						  "sp->m_bOutData = true;\n",
-			name.c_str());
+	sprintf(m_charArrTmp, "sharedPtr sp(new C%s(data));\n",name.c_str());
 	WriteWithNewLine(m_charArrTmp);
 
 	// in case of msg has no entryTime
@@ -331,8 +322,7 @@ void DataWappereGenerator::createWithData()
 		WriteWithNewLine("sp->m_data->set_entrytime(time(nullptr));");
 	}
 
-	WriteWithNewLine("sp->InitSchema();\nreturn sp;\n");
-
+	WriteWithNewLine("return sp;\n");
 	--m_nIdent;
 	WriteWithNewLine("}");
 }
@@ -351,7 +341,11 @@ void DataWappereGenerator::construct()
 	WriteWithNewLine("{\n");
 	++m_nIdent;
 
-	WriteWithNewLine("Init();");
+	sprintf(m_charArrTmp, "m_data = new %s;\n"
+						  "m_bOutData = false;\n"
+						  "InitSchema();\n",
+			m_msg.name.c_str());
+	WriteWithNewLine(m_charArrTmp);
 
 	--m_nIdent;
 	WriteWithNewLine("}\n");
@@ -362,9 +356,8 @@ void DataWappereGenerator::construct()
 	++m_nIdent;
 
 	WriteWithNewLine("m_data = data;\n"
-					 "m_bOutData = true;\n");
-
-	WriteWithNewLine("InitSchema();");
+					 "m_bOutData = true;\n"
+					 "InitSchema();\n");
 
 	--m_nIdent;
 	WriteWithNewLine("}\n");
@@ -415,22 +408,6 @@ void DataWappereGenerator::InitSchema()
 
 		WriteWithNewLine(m_charArrTmp);
 	}
-
-	--m_nIdent;
-	WriteWithNewLine("}");
-}
-
-void DataWappereGenerator::Init()
-{
-	WriteWithNewLine("void Init()\n{");
-	++m_nIdent;
-
-	sprintf(m_charArrTmp, "m_data = new %s;\n"
-						  "m_bOutData = false;\n",
-			m_msg.name.c_str());
-	WriteWithNewLine(m_charArrTmp);
-
-	WriteWithNewLine("InitSchema();");
 
 	--m_nIdent;
 	WriteWithNewLine("}");
@@ -495,8 +472,14 @@ void DataWappereGenerator::ToStringWriter()
 			{
 
 				string t = "Time";
-				bool isTime = (key.name.compare(key.name.length()-t.length(), t.length(), t) == 0);
-				bool isEntryTime = (key.name == "EntryTime");
+				bool isTime = false;
+				bool isEntryTime = false;
+
+				if(key.name.length() > t.length())
+				{
+					isTime = (key.name.compare(key.name.length()-t.length(), t.length(), t) == 0);
+					isEntryTime = (key.name == "EntryTime");
+				}
 
 				if(isEntryTime)
 				{
@@ -739,8 +722,13 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 			else if(key.type == "int64")
 			{
 				string t = "Time";
-				bool isTime = (key.name.compare(key.name.length()-t.length(), t.length(), t) == 0);
-				bool isEntryTime = (key.name == "EntryTime");
+				bool isTime = false;
+				bool isEntryTime = false;
+				if(key.name.length() > t.length())
+				{
+					isTime = (key.name.compare(key.name.length()-t.length(), t.length(), t) == 0);
+					isEntryTime = (key.name == "EntryTime");
+				}
 
 				if(isEntryTime)
 				{
@@ -1242,8 +1230,14 @@ void DataWappereGenerator::CaseValue(const JsonKey &field, bool intBeStrinig)
 		if(field.type == "int64")
 		{
 			string t = "Time";
-			bool isTime = (field.name.compare(field.name.length()-t.length(), t.length(), t) == 0);
-			bool isEntryTime = (field.name == "EntryTime");
+			bool isTime = false;
+			bool isEntryTime = false;
+
+			if(field.name.length() > t.length())
+			{
+				isTime = (field.name.compare(field.name.length()-t.length(), t.length(), t) == 0);
+				isEntryTime = (field.name == "EntryTime");
+			}
 
 			if(isEntryTime)
 			{

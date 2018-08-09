@@ -31,7 +31,6 @@ private:
 	void createWithData();
 	void construct();
 	void destruct();
-	void Init();
 	void Release();
 	void InitSchema();
 
