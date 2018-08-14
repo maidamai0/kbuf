@@ -27,7 +27,7 @@ using namespace rapidjson;
 
 struct JsonKey
 {
-	JsonKey():len(0), required(false),canBeStr(false),isTime(false)
+	JsonKey():len(0), required(false),intCanBeStr(false),isTime(false)
 	{}
 
 	string name;
@@ -36,8 +36,9 @@ struct JsonKey
 	string fget;
 	size_t len;
 	bool required;
-	bool canBeStr;			// 对integer型的数据，是否可以是string
-	bool isTime;			// tim
+	bool intCanBeStr;			// string/int from json, int in protobuf, int in elasticsearch
+	bool stringCanBeInt;		// string/int from json, string in protobuf, int in elasticsearch
+	bool isTime;				// time
 };
 
 struct ProtoMessage

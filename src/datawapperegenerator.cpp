@@ -466,7 +466,14 @@ void DataWappereGenerator::ToStringWriter()
 			if(key.type == "string")
 			{
 				sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
-				sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
+				if(key.stringCanBeInt)
+				{
+					sprintf(m_charArrTmp, "writer.Int64(stringToInt(m_data->%s()));", key.fget.c_str());
+				}
+				else
+				{
+					sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
+				}
 			}
 			else if(key.type == "int64")
 			{
@@ -1194,7 +1201,7 @@ void DataWappereGenerator::set(string fun, string type)
 			// 有些字段是int，但是有可能会以string的形式给出
 			if(type == "string")
 			{
-				if((field.type == "int64") && (field.canBeStr || field.isTime))
+				if((field.type == "int64") && (field.intCanBeStr || field.isTime))
 				{
 					CaseValue(field, true);
 				}

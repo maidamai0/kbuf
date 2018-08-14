@@ -161,13 +161,32 @@ bool protoGenerator::scan()
 	{
 		string name = object.name.GetString();
 		string type;
-		bool canBeString = false;
+		bool intCanBeString = false;
 		bool isTime = false;
+		bool stringCanbeInt = false;
 
 		if(object.value.HasMember("oneOf"))
 		{
-			type = "int64";
-			canBeString = true;
+			// 这种字段，标准里的定义都是string，但是考虑到性能，在es里存的是int
+			// 最开始的想法是，这种字段在protobuf中的字段全使用int64，但是在制作schema的时候
+			// 只做了部分字段，生成proto文件交给其他部门使用了。为了不给其他部门造成额外的工作量
+			// 以后这种字段在protobuf中的类型，以第一个为准，而不是全部使用int64
+			// 不出意外，以后这种情况应该都是string
+			const Value & multiType = object.value["oneOf"];
+			// 在protobuf中使用第一个类型
+			const Value &firstType = multiType[0];
+			assert(firstType.HasMember("type"));
+			type = m_mapType[firstType["type"].GetString()];
+
+			if(type == "int64")
+			{
+				intCanBeString = true;
+			}
+			else
+			{
+				// string
+				stringCanbeInt = true;
+			}
 		}
 		else if(object.value.HasMember("$ref"))
 		{
@@ -269,7 +288,8 @@ bool protoGenerator::scan()
 		JsonKey key;
 		key.name = name;
 		key.type = type;
-		key.canBeStr = canBeString;
+		key.intCanBeStr = intCanBeString;
+		key.stringCanBeInt = stringCanbeInt;
 		key.isTime = isTime;
 
 		unsigned len = 0;
@@ -348,6 +368,12 @@ void protoGenerator::write()
 	m_dstFile << "syntax = \"proto3\";" << endl;
 	m_dstFile << endl;
 
+	if(m_msg.name == "AnalysisNotify_Proto")
+	{
+		m_dstFile << "option java_package = \"com.keda.protobuf\";" << endl;
+		m_dstFile << "option java_outer_classname = \"AnalysisNotifyProtobuf\";" << endl;
+		m_dstFile << endl;
+	}
 
 	// import
 	for(const auto &msg : m_msg.m_VecSubMsg)
@@ -357,11 +383,11 @@ void protoGenerator::write()
 		// subimageinfo 特殊处理
 		if(msg.fieldName == "SubImageList")
 		{
-			import = "subimageinfoobject";
+			import = "subimageinfo";
 		}
 		else if(msg.fieldName == "FeatureList")
 		{
-			import = "featureobject";
+			import = "feature";
 		}
 
 		m_dstFile << "import \"" << import << ".proto" << "\";" << endl;
@@ -502,7 +528,7 @@ bool protoGenerator::WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringB
 			w.EndObject();
 		}
 	}
-	else if(object.value.IsArray())
+	else if(object.value.IsArray()) // "oneOf"[{},{}]
 	{
 		w.String(object.name.GetString());
 		w.StartArray();
@@ -512,6 +538,17 @@ bool protoGenerator::WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringB
 			if(value.IsString())
 			{
 				w.String(value.GetString());
+			}
+			else if(value.IsObject())
+			{
+				w.StartObject();
+
+				for(const auto &subObject : value.GetObject())
+				{
+					WriteSchemaValue(w, subObject);
+				}
+
+				w.EndObject();
 			}
 		}
 

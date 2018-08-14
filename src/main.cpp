@@ -1,17 +1,17 @@
 /*
-  视图库数据类生成器
-  功能如下为输入jsonschema，生成一个数据类，该数据类可以解析符合schema规范的json，支持序列化，反序列化，
-  也可以生成json
+  瑙嗗浘搴撴暟鎹被鐢熸垚鍣
+  鍔熻兘濡備笅涓鸿緭鍏sonschema锛岀敓鎴愪竴涓暟鎹被锛岃鏁版嵁绫诲彲浠ヨВ鏋愮鍚坰chema瑙勮寖鐨刯son锛屾敮鎸佸簭鍒楀寲锛屽弽搴忓垪鍖栵紝
+  涔熷彲浠ョ敓鎴恓son
 
-  数据类封装了对应的protobuf，并使用rapidJson进行json相关操作
+  鏁版嵁绫诲皝瑁呬簡瀵瑰簲鐨刾rotobuf锛屽苟浣跨敤rapidJson杩涜json鐩稿叧鎿嶄綔
 
-  支持对json进行校验，内容包括
-	1.	string 内容全部是数字的化，该字段可以使用数字或全为数字的string
-	2.	数据编码校验，数据编码如果不能以utf8进行解析，则返回400
-	3.	schema 支持的数据类型是string number integer
-	4.	当schema中有EntryTime字段时，认为该字段表示入库时间，其实这样不是很合理，
-		应该改成，无论协议/schema中有什么字段，都跟入库时间没关系
-	5.	凡是以Time(大小写敏感)结尾的字段，都认为其在es中的字段时Date
+  鏀寔瀵筳son杩涜鏍￠獙锛屽唴瀹瑰寘鎷
+	1.	string 鍐呭鍏ㄩ儴鏄暟瀛楃殑鍖栵紝璇ュ瓧娈靛彲浠ヤ娇鐢ㄦ暟瀛楁垨鍏ㄤ负鏁板瓧鐨剆tring
+	2.	鏁版嵁缂栫爜鏍￠獙锛屾暟鎹紪鐮佸鏋滀笉鑳戒互utf8杩涜瑙ｆ瀽锛屽垯杩斿洖400
+	3.	schema 鏀寔鐨勬暟鎹被鍨嬫槸string number integer
+	4.	褰搒chema涓湁EntryTime瀛楁鏃讹紝璁や负璇ュ瓧娈佃〃绀哄叆搴撴椂闂达紝鍏跺疄杩欐牱涓嶆槸寰堝悎鐞嗭紝
+		搴旇鏀规垚锛屾棤璁哄崗璁schema涓湁浠€涔堝瓧娈碉紝閮借窡鍏ュ簱鏃堕棿娌″叧绯
+	5.	鍑℃槸浠ime(澶у皬鍐欐晱鎰缁撳熬鐨勫瓧娈碉紝閮借涓哄叾鍦╡s涓殑瀛楁鏃禗ate
 
 	// TODO
  */
@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
 {
 	// initialize LOG
 	spdlog::sink_ptr consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-	consoleSink->set_level(spdlog::level::info);
+	consoleSink->set_level(spdlog::level::err);
 	consoleSink->set_pattern("[%^%l%$] %v");
 
 	spdlog::sink_ptr fileSink( new spdlog::sinks::basic_file_sink_mt( "compilelog.txt", true));
