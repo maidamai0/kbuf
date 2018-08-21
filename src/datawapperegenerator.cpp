@@ -8,7 +8,9 @@ DataWappereGenerator::DataWappereGenerator(const ProtoMessage &msg):
 	m_msg(msg),
 	m_bGuardStart(true),
 	m_nIdent(0),
-	m_bHasEntryTime(false)
+	m_bHasEntryTime(false),
+	m_bIsMsg(false),
+	m_bIsObject(false)
 {
 	memset(m_charArrTmp, 0, 1024);
 }
@@ -56,6 +58,20 @@ void DataWappereGenerator::GenerateDataWapper()
 		return;
 	}
 
+	// message has schema
+	if(m_msg.fileName.find("msg") != string::npos ||
+			m_msg.fileName == "videosliceinfo" ||
+			m_msg.fileName == "imageinfo")
+	{
+		m_bIsMsg = true;
+	}
+
+	if(m_msg.fileName.find("msg") == string::npos &&
+			m_msg.fileName.find("list") == string::npos)
+	{
+		m_bIsObject = true;
+	}
+
 	HeadGuard();
 	WriteWithNewLine();
 
@@ -95,6 +111,13 @@ void DataWappereGenerator::GenerateDataWapper()
 
 	Release();
 	WriteWithNewLine();
+
+	// experimental
+	if(m_bIsObject)
+	{
+		ToCdb();
+		WriteWithNewLine();
+	}
 
 	ToString();
 	WriteWithNewLine();
@@ -227,7 +250,7 @@ void DataWappereGenerator::Headers()
 void DataWappereGenerator::Schema()
 {
 	// message has schema
-	if(m_msg.fileName.find("msg") == string::npos)
+	if(!m_bIsMsg)
 	{
 		return;
 	}
@@ -428,6 +451,63 @@ void DataWappereGenerator::Release()
 	WriteWithNewLine("}");
 }
 
+void DataWappereGenerator::ToCdb()
+{
+	WriteWithNewLine("// experimental");
+	sprintf(m_charArrTmp, "static void ProtoToCdb(cdb::RowMutation::Builder *row_mutation_build, const %s *prot)\n{",
+			m_msg.name.c_str());
+
+	WriteWithNewLine(m_charArrTmp);
+	++m_nIdent;
+
+	// 简单类型，简单类型不是array
+	if(!m_msg.m_vecFields.empty())
+	{
+		for(const auto & key : m_msg.m_vecFields)
+		{
+			if(key.name == "FaceID" ||
+			   key.name == "MotorVehicleID")
+			{
+				// key in cdb
+				continue;
+			}
+
+			if(key.type == "string")
+			{
+				sprintf(m_charArrTmp, "row_mutation_build->SetString(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
+			}
+			else if(key.type == "int64")
+			{
+				if(key.isTime)
+				{
+					sprintf(m_charArrTmp, "row_mutation_build->SetTimestamp(\"%s\", UnixTimeToTimeVal(prot->%s()));",key.name.c_str(), key.fget.c_str());
+				}
+				else
+				{
+					sprintf(m_charArrTmp, "row_mutation_build->SetInt64(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
+				}
+			}
+			else if(key.type == "double")
+			{
+				sprintf(m_charArrTmp, "row_mutation_build->SetDouble(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
+			}
+			else if(key.type == "bool")
+			{
+				sprintf(m_charArrTmp, "row_mutation_build->SetInt64(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
+			}
+			else
+			{
+				g_logger->error("unkonwn type : %s\n", key.type.c_str());
+			}
+
+			WriteWithNewLine(m_charArrTmp);
+		}
+	}
+
+	--m_nIdent;
+	WriteWithNewLine("}");
+}
+
 void DataWappereGenerator::ToString()
 {
 	WriteWithNewLine("string &ToString(string &str, bool read = false)\n"
@@ -477,18 +557,7 @@ void DataWappereGenerator::ToStringWriter()
 			}
 			else if(key.type == "int64")
 			{
-
-				string t = "Time";
-				bool isTime = false;
-				bool isEntryTime = false;
-
-				if(key.name.length() > t.length())
-				{
-					isTime = (key.name.compare(key.name.length()-t.length(), t.length(), t) == 0);
-					isEntryTime = (key.name == "EntryTime");
-				}
-
-				if(isEntryTime)
+				if(key.isEntryTime)
 				{
 					// 保持一致
 					sprintf(m_charArrTmp, "if(read)\n"
@@ -501,7 +570,7 @@ void DataWappereGenerator::ToStringWriter()
 										  "}",
 							"UnixTimeToRawTime");
 				}
-				else if(isTime)
+				else if(key.isTime)
 				{
 					sprintf(m_charArrTmp,"if(read)\n"
 										 "{\n"
@@ -644,15 +713,18 @@ void DataWappereGenerator::ToStringWriter()
 	++m_nIdent;
 
 	// entryTime
-	if(!m_bHasEntryTime)
+	if(!m_bHasEntryTime && m_bIsMsg)
 	{
 		WriteWithNewLine("writer.String(\"EntryTime\");\n"
 						 "writer.String(UnixTimeToPrettyTime(getEntryTime()).c_str());");
 	}
 
 	// expiredTime
-	WriteWithNewLine("writer.String(\"KDExpiredDate\");\n"
-					 "writer.String(UnixTimeToPrettyTime(getExpiredTime()).c_str());");
+	if(m_bIsMsg)
+	{
+		WriteWithNewLine("writer.String(\"KDExpiredDate\");\n"
+						 "writer.String(UnixTimeToPrettyTime(getExpiredTime()).c_str());");
+	}
 
 	--m_nIdent;
 	WriteWithNewLine("}");
@@ -728,22 +800,22 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 			}
 			else if(key.type == "int64")
 			{
-				string t = "Time";
-				bool isTime = false;
-				bool isEntryTime = false;
-				if(key.name.length() > t.length())
-				{
-					isTime = (key.name.compare(key.name.length()-t.length(), t.length(), t) == 0);
-					isEntryTime = (key.name == "EntryTime");
-				}
+//				string t = "Time";
+//				bool isTime = false;
+//				bool isEntryTime = false;
+//				if(key.name.length() > t.length())
+//				{
+//					isTime = (key.name.compare(key.name.length()-t.length(), t.length(), t) == 0);
+//					isEntryTime = (key.name == "EntryTime");
+//				}
 
-				if(isEntryTime)
+				if(key.isEntryTime)
 				{
 					// 保持一致
 					sprintf(m_charArrTmp, "writer.String(%s(getEntryTime()).c_str());\n",
 							"UnixTimeToRawTime");
 				}
-				else if(isTime)
+				else if(key.isTime)
 				{
 					sprintf(m_charArrTmp,"writer.String(UnixTimeToRawTime(m_data->%s()).c_str());\n",
 							key.fget.c_str());
@@ -1236,24 +1308,24 @@ void DataWappereGenerator::CaseValue(const JsonKey &field, bool intBeStrinig)
 	{
 		if(field.type == "int64")
 		{
-			string t = "Time";
-			bool isTime = false;
-			bool isEntryTime = false;
+//			string t = "Time";
+//			bool isTime = false;
+//			bool isEntryTime = false;
 
-			if(field.name.length() > t.length())
-			{
-				isTime = (field.name.compare(field.name.length()-t.length(), t.length(), t) == 0);
-				isEntryTime = (field.name == "EntryTime");
-			}
+//			if(field.name.length() > t.length())
+//			{
+//				isTime = (field.name.compare(field.name.length()-t.length(), t.length(), t) == 0);
+//				isEntryTime = (field.name == "EntryTime");
+//			}
 
-			if(isEntryTime)
+			if(field.isEntryTime)
 			{
 				// EntryTime should set by viid
 				// TODO break;
 				// sprintf(m_charArrTmp, "m_data->%s(RawTimeToPretty(time(nullptr)));", field.fset.c_str());
 				sprintf(m_charArrTmp, "%s", "break;");
 			}
-			else if(isTime)
+			else if(field.isTime)
 			{
 				// xxTime, string as YYYYMMDDHHMMSS
 				sprintf(m_charArrTmp, "{\n\tstring s(value);\n"

@@ -39,6 +39,18 @@ struct JsonKey
 	bool intCanBeStr;			// string/int from json, int in protobuf, int in elasticsearch
 	bool stringCanBeInt;		// string/int from json, string in protobuf, int in elasticsearch
 	bool isTime;				// time
+	bool isEntryTime;			// is EntryTime
+};
+
+struct ProtoKey
+{
+	 ProtoKey(string type, string name, bool array=false):
+		 type(type),name(name),isArray(array)
+	 {}
+
+	string type;
+	string name;
+	bool isArray;
 };
 
 struct ProtoMessage
@@ -61,6 +73,8 @@ struct ProtoMessage
 	// 复杂类型字段，即类型是其他message
 	// first:field name，second:message
 	vector<ProtoMessage> m_VecSubMsg;
+
+	vector<ProtoKey> m_VecProtoKey;		// for order in protobuf
 
 	string m_strSchema;
 };

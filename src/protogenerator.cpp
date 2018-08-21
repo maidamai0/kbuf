@@ -164,6 +164,7 @@ bool protoGenerator::scan()
 		bool intCanBeString = false;
 		bool isTime = false;
 		bool stringCanbeInt = false;
+		bool isEntryTime = false;
 
 		if(object.value.HasMember("oneOf"))
 		{
@@ -218,8 +219,11 @@ bool protoGenerator::scan()
 			pg.m_msg.fget = get;
 
 			m_msg.m_VecSubMsg.push_back(pg.m_msg);
-
 			type = pg.m_msg.name;
+
+			ProtoKey proKey(type,name);
+			m_msg.m_VecProtoKey.push_back(proKey);
+
 			continue;
 		}
 		else
@@ -244,36 +248,57 @@ bool protoGenerator::scan()
 				pg.m_msg.isArrray = true;
 				pg.m_msg.fieldName = name;
 
+
+				ProtoKey proKey(pg.m_msg.name, name, true);
+				m_msg.m_VecProtoKey.push_back(proKey);
+
+				// Case will be case in protobuf, and case is a key word in c/c++
+				// protobuf will append a '_', case_
+				// need special treatment
+				if(name == "Case")
+				{
+					name = "Case_";
+				}
+
 				string fadd("add_");
-				fadd.append(pg.m_msg.fieldName);
+				fadd.append(name);
 				ToLowCase(fadd);
 				pg.m_msg.fadder = fadd;
 
-				string fsize(pg.m_msg.fieldName);
+				string fsize(name);
 				fsize.append("_size");
 				ToLowCase(fsize);
 				pg.m_msg.fsize = fsize;
 
-				string fget(pg.m_msg.fieldName);
+				string fget(name);
 				ToLowCase(fget);
 				pg.m_msg.fget = fget;
 
 				m_msg.m_VecSubMsg.push_back(pg.m_msg);
 
 				type = pg.m_msg.name;
+
 				continue;
 			}
 			else
 			{
 				type = m_mapType[object.value["type"].GetString()];
 
+				// XXXTime is date time
 				string t = "Time";
 				if(name.length() > t.length())
 				{
-					isTime = (name.compare(name.length()-t.length(), t.length(), t) == 0);
-					if(isTime)
+					if(name.compare(name.length()-t.length(), t.length(), t) == 0 ||
+							name == "TimeUpLimit" ||
+							name =="TimeLowLimit")
 					{
+						isTime = true;
 						type = "int64";
+					}
+
+					if(name == "EntryTime")
+					{
+						isEntryTime = true;
 					}
 				}
 			}
@@ -286,11 +311,14 @@ bool protoGenerator::scan()
 		}
 
 		JsonKey key;
+
 		key.name = name;
+
 		key.type = type;
 		key.intCanBeStr = intCanBeString;
 		key.stringCanBeInt = stringCanbeInt;
 		key.isTime = isTime;
+		key.isEntryTime = isEntryTime;
 
 		unsigned len = 0;
 		if(key.type == "string")
@@ -318,6 +346,9 @@ bool protoGenerator::scan()
 		key.len = len;
 
 		m_msg.m_vecFields.push_back(key);
+
+		ProtoKey proKey(type, name);
+		m_msg.m_VecProtoKey.push_back(proKey);
 	}
 
 	fclose(fp);
@@ -397,8 +428,51 @@ void protoGenerator::write()
 	// message name
 	m_dstFile << "message " << m_msg.name << "{" << endl;
 
-	// 简单类型的字段
 	unsigned i = 1;
+	for(const auto & key : m_msg.m_VecProtoKey)
+	{
+		string line;
+
+		do{
+			// subimageinfo 特殊处理
+			if(key.name == "SubImageList")
+			{
+				line.append("repeated SubImageInfo_Proto SubImageList = ");
+				line.append(to_string((i)));
+				line.append(";");
+				break;
+			}
+
+			// FeatureList 特殊处理
+			if(key.name == "FeatureList")
+			{
+				line.append("repeated Feature_Proto FeatureList = ");
+				line.append(to_string((i)));
+				line.append(";");
+				break;
+			}
+
+			if(key.isArray)
+			{
+				line.append("repeated ");
+			}
+
+			line.append(key.type);
+			line.append("\t");
+			line.append(key.name);
+			line.append(" = ");
+			line.append(to_string(i));
+			line.append(";");
+
+		}while(false);
+
+		m_dstFile << "\t" << line << endl;
+
+		++i;
+	}
+
+	/*
+	// 简单类型的字段
 	for(const auto &field : m_msg.m_vecFields)
 	{
 
@@ -456,7 +530,7 @@ void protoGenerator::write()
 		m_dstFile << "\t" << line << endl;
 
 		++i;
-	}
+	}*/
 
 	m_dstFile << "}" << endl;
 

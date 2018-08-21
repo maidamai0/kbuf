@@ -34,6 +34,8 @@ private:
 	void Release();
 	void InitSchema();
 
+	void ToCdb();
+
 	void ToString();
 	void ToStringByProto();
 	void ToStringWriter();
@@ -67,6 +69,8 @@ private:
 	unsigned m_nIdent;
 	char m_charArrTmp[1024];
 	bool m_bHasEntryTime;
+	bool m_bIsMsg;
+	bool m_bIsObject;
 };
 
 #endif // DATAWAPPEREGENERATOR_H
