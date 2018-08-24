@@ -472,6 +472,16 @@ void DataWappereGenerator::ToCdb()
 				continue;
 			}
 
+			// kdface not write
+			if(m_msg.fileName == "kdface")
+			{
+				if(key.name == "EntryTime" ||
+						key.name == "TabID")
+				{
+					continue;
+				}
+			}
+
 			if(key.type == "string")
 			{
 				sprintf(m_charArrTmp, "row_mutation_build->SetString(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
