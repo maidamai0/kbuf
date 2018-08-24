@@ -400,15 +400,13 @@ void protoGenerator::write()
 	m_dstFile << endl;
 
 	// java proto name
+//	m_dstFile << "option java_package = \"com.keda.protobuf\";" << endl;
+//	m_dstFile << endl;
+
 	if(m_msg.name == "AnalysisNotify_Proto")
 	{
 		m_dstFile << "option java_package = \"com.keda.protobuf\";" << endl;
 		m_dstFile << "option java_outer_classname = \"AnalysisNotifyProtobuf\";" << endl;
-		m_dstFile << endl;
-	}
-	else
-	{
-		m_dstFile << "option java_package = \"com.keda.protobuf\";" << endl;
 		m_dstFile << endl;
 	}
 

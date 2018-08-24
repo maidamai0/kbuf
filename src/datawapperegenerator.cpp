@@ -620,6 +620,8 @@ void DataWappereGenerator::ToStringWriter()
 						"{\n"
 						"\n"
 						"\twriter.String(\"SubImageList\");\n"
+						"\twriter.StartObject();\n"
+						"\twriter.String(\"SubImageInfoObject\");\n"
 						"\twriter.StartArray();\n"
 						"\tfor(auto & RawP : *(m_data->mutable_subimagelist()))\n"
 						"\t{\n"
@@ -629,6 +631,7 @@ void DataWappereGenerator::ToStringWriter()
 						"\t\tsp->ToStringWriter(writer, read);\n"
 						"\t}\n"
 						"\twriter.EndArray();\n"
+						"\twriter.EndObject();\n"
 						"}",
 						"CreateSubImageInfo_ProtoWithData");
 
@@ -645,6 +648,8 @@ void DataWappereGenerator::ToStringWriter()
 						"{\n"
 						"\n"
 						"\twriter.String(\"FeatureList\");\n"
+						"\twriter.StartObject();\n"
+						"\twriter.String(\"FeatureObject\");\n"
 						"\twriter.StartArray();\n"
 						"\tfor(auto & RawP : *(m_data->mutable_featurelist()))\n"
 						"\t{\n"
@@ -654,6 +659,7 @@ void DataWappereGenerator::ToStringWriter()
 						"\t\tsp->ToStringWriter(writer, read);\n"
 						"\t}\n"
 						"\twriter.EndArray();\n"
+						"\twriter.EndObject();\n"
 						"}",
 						"CreateFeature_ProtoWithData");
 
