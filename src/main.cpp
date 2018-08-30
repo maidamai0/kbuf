@@ -22,7 +22,7 @@
 
 spdlog::logger *g_logger = nullptr;
 
-int compile(string schemaFileName)
+int compile(string schemaFileName, string sqlfileName = "")
 {
 	protoGenerator pg(schemaFileName);
 
@@ -36,7 +36,7 @@ int compile(string schemaFileName)
 	getcwd(cwd, sizeof (cwd));
 	g_logger->info("go {} to generate head files...", cwd);    // json
 
-	DataWappereGenerator dw(pg.m_msg);
+	DataWappereGenerator dw(pg.m_msg, sqlfileName);
 	dw.GenerateDataWapper();
 
 	chdir("./schema");
@@ -46,11 +46,13 @@ int compile(string schemaFileName)
 	return 0;
 }
 
+
+
 int main(int argc, char *argv[])
 {
 	// initialize LOG
 	spdlog::sink_ptr consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-	consoleSink->set_level(spdlog::level::err);
+	consoleSink->set_level(spdlog::level::warn);
 	consoleSink->set_pattern("[%^%l%$] %v");
 
 	spdlog::sink_ptr fileSink( new spdlog::sinks::basic_file_sink_mt( "compilelog.txt", true));
@@ -80,9 +82,22 @@ int main(int argc, char *argv[])
 		string file;
 		while (getline(makeLists, file))
 		{
-			g_logger->info("Compile {}...", file);
-			compile(file);
-			g_logger->info("Compile {} complete\n", file);
+			vector<string> vec;
+			SplitWithSpace(file, vec);
+
+			if(vec.size() == 2)
+			{
+				g_logger->info("Compile {}...", file);
+				compile(vec[0], vec[1]);
+				g_logger->info("Compile {} complete\n", file);
+			}
+			else
+			{
+				// size = 1
+				g_logger->info("Compile {}...", file);
+				compile(file);
+				g_logger->info("Compile {} complete\n", file);
+			}
 		}
 	}
 	else

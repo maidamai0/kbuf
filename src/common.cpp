@@ -62,3 +62,30 @@ void NoExtention(string &fileName)
 
 	return;
 }
+
+void SplitWithSpace(const string &s, vector<string> &v)
+{
+	string elem;
+	v.clear();
+	for(const auto & c : s)
+	{
+		if(c != ' ' && c != ',' && c != '(' && c != ')' && c != '=' && c != '\t' && c != '\r')
+		{
+			elem.push_back(c);
+		}
+		else
+		{
+			if(!elem.empty())
+			{
+				v.push_back(elem);
+				elem.clear();
+			}
+		}
+	}
+
+	if(!elem.empty())
+	{
+		v.push_back(elem);
+	}
+
+}

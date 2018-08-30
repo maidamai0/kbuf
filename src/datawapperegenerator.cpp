@@ -4,13 +4,14 @@
 using namespace rapidjson;
 extern spdlog::logger *g_logger;
 
-DataWappereGenerator::DataWappereGenerator(const ProtoMessage &msg):
+DataWappereGenerator::DataWappereGenerator(const ProtoMessage &msg, string sqlfile):
 	m_msg(msg),
 	m_bGuardStart(true),
 	m_nIdent(0),
 	m_bHasEntryTime(false),
 	m_bIsMsg(false),
-	m_bIsObject(false)
+	m_bIsObject(false),
+	m_sqlFileName(sqlfile)
 {
 	memset(m_charArrTmp, 0, 1024);
 }
@@ -22,6 +23,12 @@ void DataWappereGenerator::GenerateDataWapper()
         g_logger->info("kb: Nothing to be done");
         return;
     }
+
+	if(m_msg.isNew)
+	{
+		g_logger->info("kb: already compiled");
+		return;
+	}
 
 	// 不是存列表类型，并且没有定义EntryTime字段
 	for(const auto & key : m_msg.m_vecFields)
@@ -113,11 +120,18 @@ void DataWappereGenerator::GenerateDataWapper()
 	WriteWithNewLine();
 
 	// experimental
-	if(m_bIsObject)
+	if(!m_sqlFileName.empty())
 	{
+		g_logger->info("sql:{}", m_sqlFileName);
 		ToCdb();
 		WriteWithNewLine();
 	}
+
+//	if(m_bIsObject)
+//	{
+//		ToCdb();
+//		WriteWithNewLine();
+//	}
 
 	ToString();
 	WriteWithNewLine();
@@ -453,6 +467,9 @@ void DataWappereGenerator::Release()
 
 void DataWappereGenerator::ToCdb()
 {
+	CCdb sql(m_sqlFileName);
+	sql.scan();
+
 	WriteWithNewLine("// experimental");
 	sprintf(m_charArrTmp, "static void ProtoToCdb(cdb::RowMutation::Builder *row_mutation_build, const %s *prot)\n{",
 			m_msg.name.c_str());
@@ -460,58 +477,121 @@ void DataWappereGenerator::ToCdb()
 	WriteWithNewLine(m_charArrTmp);
 	++m_nIdent;
 
-	// 简单类型，简单类型不是array
+	const JsonKey *pJsonKey = nullptr;
 	if(!m_msg.m_vecFields.empty())
 	{
-		for(const auto & key : m_msg.m_vecFields)
+		for(const auto & cdbkey : sql.record.Keys)
 		{
-			if(key.name == "FaceID" ||
-			   key.name == "MotorVehicleID")
+			if(cdbkey.isPrimary)
 			{
-				// key in cdb
 				continue;
 			}
 
-			// kdface not write
-			if(m_msg.fileName == "kdface")
+			pJsonKey = GetJsonKeyWithName(cdbkey.name);
+			if(!pJsonKey)
 			{
-				if(key.name == "EntryTime" ||
-						key.name == "TabID")
-				{
-					continue;
-				}
+				g_logger->warn("'{}' in [{}] not found in [{}.proto]", cdbkey.name, m_sqlFileName, m_msg.fileName);
+//				sprintf(m_charArrTmp, "// %s not found in proto\n", cdbkey.name.c_str());
+//				WriteWithNewLine(m_charArrTmp);
+				continue;
 			}
 
-			if(key.type == "string")
+			if(cdbkey.type == "string")
 			{
-				sprintf(m_charArrTmp, "row_mutation_build->SetString(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
-			}
-			else if(key.type == "int64")
-			{
-				if(key.isTime)
+				if(pJsonKey->type == "string")
 				{
-					sprintf(m_charArrTmp, "row_mutation_build->SetTimestamp(\"%s\", UnixTimeToTimeVal(prot->%s()));",key.name.c_str(), key.fget.c_str());
+					sprintf(m_charArrTmp, "row_mutation_build->SetString(\"%s\", prot->%s());",cdbkey.name.c_str(), pJsonKey->fget.c_str());
 				}
 				else
 				{
-					sprintf(m_charArrTmp, "row_mutation_build->SetInt64(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
+					// int
+					sprintf(m_charArrTmp, "row_mutation_build->SetString(\"%s\", IntTOString(prot->%s()));",cdbkey.name.c_str(), pJsonKey->fget.c_str());
 				}
 			}
-			else if(key.type == "double")
+			else if(cdbkey.type == "integer" || cdbkey.type == "long")
 			{
-				sprintf(m_charArrTmp, "row_mutation_build->SetDouble(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
+				if(pJsonKey->type == "int64")
+				{
+					sprintf(m_charArrTmp, "row_mutation_build->SetInt64(\"%s\", prot->%s());",cdbkey.name.c_str(), pJsonKey->fget.c_str());
+				}
+				else
+				{
+					// string
+					sprintf(m_charArrTmp, "row_mutation_build->SetInt64(\"%s\", stringToInt(prot->%s()));",cdbkey.name.c_str(), pJsonKey->fget.c_str());
+				}
+
 			}
-			else if(key.type == "bool")
+			else if(cdbkey.type == "double")
 			{
-				sprintf(m_charArrTmp, "row_mutation_build->SetInt64(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
+				sprintf(m_charArrTmp, "row_mutation_build->SetDouble(\"%s\", prot->%s());",cdbkey.name.c_str(), pJsonKey->fget.c_str());
+			}
+			else if(cdbkey.type == "bool")
+			{
+				sprintf(m_charArrTmp, "row_mutation_build->SetInt64(\"%s\", prot->%s());",cdbkey.name.c_str(), pJsonKey->fget.c_str());
+			}
+			else if(cdbkey.type == "timestamp" && pJsonKey->type == "int64")
+			{
+				sprintf(m_charArrTmp, "row_mutation_build->SetTimestamp(\"%s\", UnixTimeToTimeVal(prot->%s()));",cdbkey.name.c_str(), pJsonKey->fget.c_str());
 			}
 			else
 			{
-				g_logger->error("unkonwn type : %s\n", key.type.c_str());
+				g_logger->error("unkonwn type,cdb: {} in {} at {}, proto: {} in {}\n",
+								cdbkey.type, cdbkey.name, m_sqlFileName, pJsonKey->type, pJsonKey->name);
 			}
 
 			WriteWithNewLine(m_charArrTmp);
 		}
+
+
+//		for(const auto & key : m_msg.m_vecFields)
+//		{
+//			if(key.name == "FaceID" ||
+//			   key.name == "MotorVehicleID")
+//			{
+//				// key in cdb
+//				continue;
+//			}
+
+//			// kdface not write
+//			if(m_msg.fileName == "kdface")
+//			{
+//				if(key.name == "EntryTime" ||
+//						key.name == "TabID")
+//				{
+//					continue;
+//				}
+//			}
+
+//			if(key.type == "string")
+//			{
+//				sprintf(m_charArrTmp, "row_mutation_build->SetString(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
+//			}
+//			else if(key.type == "int64")
+//			{
+//				if(key.isTime)
+//				{
+//					sprintf(m_charArrTmp, "row_mutation_build->SetTimestamp(\"%s\", UnixTimeToTimeVal(prot->%s()));",key.name.c_str(), key.fget.c_str());
+//				}
+//				else
+//				{
+//					sprintf(m_charArrTmp, "row_mutation_build->SetInt64(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
+//				}
+//			}
+//			else if(key.type == "double")
+//			{
+//				sprintf(m_charArrTmp, "row_mutation_build->SetDouble(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
+//			}
+//			else if(key.type == "bool")
+//			{
+//				sprintf(m_charArrTmp, "row_mutation_build->SetInt64(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
+//			}
+//			else
+//			{
+//				g_logger->error("unkonwn type : %s\n", key.type.c_str());
+//			}
+
+//			WriteWithNewLine(m_charArrTmp);
+//		}
 	}
 
 	--m_nIdent;
@@ -548,8 +628,17 @@ void DataWappereGenerator::ToStringWriter()
 	// 简单类型，简单类型不是array
 	if(!m_msg.m_vecFields.empty())
 	{
+
 		for(const auto & key : m_msg.m_vecFields)
 		{
+			if(m_msg.name == "DispositionNotificationListMsg")
+			{
+				if(key.name == "ReceiveAddr")
+				{
+					continue;
+				}
+			}
+
 			sprintf(m_charArrTmp, "writer.String(\"%s\");", key.name.c_str());
 			WriteWithNewLine(m_charArrTmp);
 
@@ -625,27 +714,39 @@ void DataWappereGenerator::ToStringWriter()
 			// special handle for subimagelist
 			if(msg.fieldName == "SubImageList")
 			{
-				sprintf(m_charArrTmp,
-						"if(m_data->subimagelist_size())\n"
-						"{\n"
-						"\n"
-						"\twriter.String(\"SubImageList\");\n"
-						"\twriter.StartObject();\n"
-						"\twriter.String(\"SubImageInfoObject\");\n"
-						"\twriter.StartArray();\n"
-						"\tfor(auto & RawP : *(m_data->mutable_subimagelist()))\n"
-						"\t{\n"
-						"\t\tauto sp = CSubImageInfo_Proto::%s(&RawP);\n"
-						"\t\tsp->setEntryTime(getEntryTime());\n"
-						"\t\tsp->setExpiredTime(getExpiredTime());\n"
-						"\t\tsp->ToStringWriter(writer, read);\n"
-						"\t}\n"
-						"\twriter.EndArray();\n"
-						"\twriter.EndObject();\n"
-						"}",
-						"CreateSubImageInfo_ProtoWithData");
-
-				WriteWithNewLine(m_charArrTmp);
+				WriteWithNewLine("if(m_data->subimagelist_size())\n"
+								 "{\n"
+								 "\n"
+								 "\tif(read)\n"
+								 "\t{\n"
+								 "\t\twriter.String(\"SubImageList\");\n"
+								 "\t\twriter.StartObject();\n"
+								 "\t\twriter.String(\"SubImageInfoObject\");\n"
+								 "\t\twriter.StartArray();\n"
+								 "\t\tfor(auto & RawP : *(m_data->mutable_subimagelist()))\n"
+								 "\t\t{\n"
+								 "\t\t\tauto sp = CSubImageInfo_Proto::CreateSubImageInfo_ProtoWithData(&RawP);\n"
+								 "\t\t\tsp->setEntryTime(getEntryTime());\n"
+								 "\t\t\tsp->setExpiredTime(getExpiredTime());\n"
+								 "\t\t\tsp->ToStringWriter(writer, read);\n"
+								 "\t\t}\n"
+								 "\t\twriter.EndArray();\n"
+								 "\t\twriter.EndObject();\n"
+								 "\t}\n"
+								 "\telse\n"
+								 "\t{\n"
+								 "\t\twriter.String(\"SubImageList\");\n"
+								 "\t\twriter.StartArray();\n"
+								 "\t\tfor(auto & RawP : *(m_data->mutable_subimagelist()))\n"
+								 "\t\t{\n"
+								 "\t\t\tauto sp = CSubImageInfo_Proto::CreateSubImageInfo_ProtoWithData(&RawP);\n"
+								 "\t\t\tsp->setEntryTime(getEntryTime());\n"
+								 "\t\t\tsp->setExpiredTime(getExpiredTime());\n"
+								 "\t\t\tsp->ToStringWriter(writer, read);\n"
+								 "\t\t}\n"
+								 "\t\twriter.EndArray();\n"
+								 "\t}\n"
+								 "}");
 
 				WriteWithNewLine();
 				continue;
@@ -653,27 +754,39 @@ void DataWappereGenerator::ToStringWriter()
 
 			if(msg.fieldName == "FeatureList")
 			{
-				sprintf(m_charArrTmp,
-						"if(m_data->featurelist_size())\n"
-						"{\n"
-						"\n"
-						"\twriter.String(\"FeatureList\");\n"
-						"\twriter.StartObject();\n"
-						"\twriter.String(\"FeatureObject\");\n"
-						"\twriter.StartArray();\n"
-						"\tfor(auto & RawP : *(m_data->mutable_featurelist()))\n"
-						"\t{\n"
-						"\t\tauto sp = CFeature_Proto::%s(&RawP);\n"
-						"\t\tsp->setEntryTime(getEntryTime());\n"
-						"\t\tsp->setExpiredTime(getExpiredTime());\n"
-						"\t\tsp->ToStringWriter(writer, read);\n"
-						"\t}\n"
-						"\twriter.EndArray();\n"
-						"\twriter.EndObject();\n"
-						"}",
-						"CreateFeature_ProtoWithData");
-
-				WriteWithNewLine(m_charArrTmp);
+				WriteWithNewLine("if(m_data->featurelist_size())\n"
+								 "{\n"
+								 "\n"
+								 "\tif(read)\n"
+								 "\t{\n"
+								 "\t\twriter.String(\"FeatureList\");\n"
+								 "\t\twriter.StartObject();\n"
+								 "\t\twriter.String(\"FeatureObject\");\n"
+								 "\t\twriter.StartArray();\n"
+								 "\t\tfor(auto & RawP : *(m_data->mutable_featurelist()))\n"
+								 "\t\t{\n"
+								 "\t\t\tauto sp = CFeature_Proto::CreateFeature_ProtoWithData(&RawP);\n"
+								 "\t\t\tsp->setEntryTime(getEntryTime());\n"
+								 "\t\t\tsp->setExpiredTime(getExpiredTime());\n"
+								 "\t\t\tsp->ToStringWriter(writer, read);\n"
+								 "\t\t}\n"
+								 "\t\twriter.EndArray();\n"
+								 "\t\twriter.EndObject();\n"
+								 "\t}\n"
+								 "\telse\n"
+								 "\t{\n"
+								 "\t\twriter.String(\"FeatureList\");\n"
+								 "\t\twriter.StartArray();\n"
+								 "\t\tfor(auto & RawP : *(m_data->mutable_featurelist()))\n"
+								 "\t\t{\n"
+								 "\t\t\tauto sp = CFeature_Proto::CreateFeature_ProtoWithData(&RawP);\n"
+								 "\t\t\tsp->setEntryTime(getEntryTime());\n"
+								 "\t\t\tsp->setExpiredTime(getExpiredTime());\n"
+								 "\t\t\tsp->ToStringWriter(writer, read);\n"
+								 "\t\t}\n"
+								 "\t\twriter.EndArray();\n"
+								 "\t}\n"
+								 "}");
 
 				WriteWithNewLine();
 				continue;
@@ -1478,3 +1591,22 @@ string DataWappereGenerator::TextToCpp(string src)
 
 	return out;
 }
+
+const JsonKey * DataWappereGenerator::GetJsonKeyWithName(string name)
+{
+	const JsonKey *pKey = nullptr;
+	for(const JsonKey & key : m_msg.m_vecFields)
+	{
+
+		ToLowCase(name);
+
+		if(name == key.fget)
+		{
+			pKey = &key;
+			break;
+		}
+	}
+
+	return pKey;
+}
+

@@ -55,7 +55,7 @@ struct ProtoKey
 
 struct ProtoMessage
 {
-    ProtoMessage():isArrray(false), modifyTime(0){}
+	ProtoMessage():isArrray(false), modifyTime(0), isNew(false){}
 
 	string fileName;		// 没有后缀名,import,include是使用
 	string name;			// title in json schema, proto message name is name_Proto, c++ class name is CName
@@ -66,6 +66,7 @@ struct ProtoMessage
 	string fget;			// 作为其他message中的一个字段，get函数
 	bool isArrray;			// 作为其他message中的一个字段时，是否为数组
     time_t modifyTime;      // schema file modify time
+	bool isNew;				// skip new file
 
 	// 简单类型字段
 	vector<JsonKey> m_vecFields;

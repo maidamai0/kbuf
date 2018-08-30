@@ -328,7 +328,7 @@ bool protoGenerator::scan()
 
 			if(!(object.value.HasMember("maxlength")))
 			{
-                g_logger->warn("{}:{} missed maxLength", src, key.name);
+				g_logger->info("{}:{} missed maxLength", src, key.name);
 			}
 			else
 			{
@@ -383,6 +383,7 @@ void protoGenerator::write()
         {
             // proto file is newer than schema file
 			g_logger->info("{} is newer than {} skip...", dst, schema);
+			m_msg.isNew = true;
             return;
         }
 
@@ -644,8 +645,11 @@ bool protoGenerator::WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringB
 	}
 	else if(object.value.IsString())
 	{
-		w.String(object.name.GetString());
-		w.String(object.value.GetString());
+		if(object.name != "description")
+		{
+			w.String(object.name.GetString());
+			w.String(object.value.GetString());
+		}
 	}
 	else
 	{

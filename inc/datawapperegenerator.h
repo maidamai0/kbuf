@@ -2,12 +2,13 @@
 #define DATAWAPPEREGENERATOR_H
 
 #include "protogenerator.h"
+#include "cdb.h"
 #include "sstream"
 
 class DataWappereGenerator
 {
 public:
-	DataWappereGenerator(const ProtoMessage &msg);
+	DataWappereGenerator(const ProtoMessage &msg, string sqlfilename = "");
 	void GenerateDataWapper();
 
 private:
@@ -59,7 +60,7 @@ private:
 	void WriteWithNewLine(string str="");
 
 	string TextToCpp(string src);
-
+	const JsonKey *GetJsonKeyWithName(string name);
 
 private:
 
@@ -71,6 +72,7 @@ private:
 	bool m_bHasEntryTime;
 	bool m_bIsMsg;
 	bool m_bIsObject;
+	string m_sqlFileName;
 };
 
 #endif // DATAWAPPEREGENERATOR_H

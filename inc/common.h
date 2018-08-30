@@ -3,6 +3,7 @@
 
 #include <string>
 #include <sys/stat.h>
+#include <vector>
 
 using namespace std;
 typedef std::uint64_t hash_t;
@@ -19,6 +20,8 @@ void ToLowCase(string &str);
 void ToUpperCase(string &str);
 
 void NoExtention(string &fileName);
+
+void SplitWithSpace(const string &s, vector<string> &v);
 
 constexpr hash_t get_str_hash(char const* str, hash_t last_value = basis)
 {
