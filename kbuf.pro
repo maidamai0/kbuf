@@ -6,6 +6,7 @@ CONFIG -= qt
 HEADERS +=  ./inc/protogenerator.h \
             ./inc/datawapperegenerator.h \
             ./inc/common.h \
+			./inc/cdb.h \
             ./inc/spdlog/*.h \
             ./inc/spdlog/details/*.h \
             ./inc/spdlog/sinks/*.h \
@@ -23,6 +24,7 @@ SOURCES += \
     ./src/datawapperegenerator.cpp \
     ./src/common.cpp \
     ./src/main.cpp \
+	./src/cdb.cpp
 
 
 INCLUDEPATH +=	./inc/ \
