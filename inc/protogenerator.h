@@ -27,7 +27,7 @@ using namespace rapidjson;
 
 struct JsonKey
 {
-	JsonKey():len(0), required(false),intCanBeStr(false),isTime(false)
+	JsonKey():len(0), required(false),intCanBeStr(false),isTime(false),isGeoPoint(false)
 	{}
 
 	string name;
@@ -40,6 +40,7 @@ struct JsonKey
 	bool stringCanBeInt;		// string/int from json, string in protobuf, int in elasticsearch
 	bool isTime;				// time
 	bool isEntryTime;			// is EntryTime
+	bool isGeoPoint;			// longitude or latitude
 };
 
 struct ProtoKey
@@ -48,14 +49,27 @@ struct ProtoKey
 		 type(type),name(name),isArray(array)
 	 {}
 
+	 ProtoKey():isArray(false)
+	 {}
+
 	string type;
 	string name;
 	bool isArray;
 };
 
+struct CGeoPoint
+{
+	CGeoPoint(){}
+
+	JsonKey lon;
+	JsonKey lat;
+	string name;
+};
+
 struct ProtoMessage
 {
-	ProtoMessage():isArrray(false), modifyTime(0), isNew(false){}
+	ProtoMessage():isArrray(false), modifyTime(0), isNew(false),
+	bHasEntryTime(false), bHasExpireDate(false){}
 
 	string fileName;		// 没有后缀名,import,include是使用
 	string name;			// title in json schema, proto message name is name_Proto, c++ class name is CName
@@ -67,6 +81,8 @@ struct ProtoMessage
 	bool isArrray;			// 作为其他message中的一个字段时，是否为数组
     time_t modifyTime;      // schema file modify time
 	bool isNew;				// skip new file
+	bool bHasEntryTime;
+	bool bHasExpireDate;
 
 	// 简单类型字段
 	vector<JsonKey> m_vecFields;
@@ -76,6 +92,8 @@ struct ProtoMessage
 	vector<ProtoMessage> m_VecSubMsg;
 
 	vector<ProtoKey> m_VecProtoKey;		// for order in protobuf
+
+	CGeoPoint GeoPoint;
 
 	string m_strSchema;
 };
@@ -91,6 +109,8 @@ private:
 	bool GenerateSchema(string file, rapidjson::PrettyWriter<rapidjson::StringBuffer> &w);
 	bool WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringBuffer> &w,
 						  const GenericMember<UTF8<char>, MemoryPoolAllocator<CrtAllocator>> &object);
+	bool isLon(string str);
+	bool isLat(string str);
 	void write();
     bool isComplexType(string type);
 

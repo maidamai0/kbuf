@@ -69,7 +69,6 @@ private:
 	ofstream m_dstFile;
 	unsigned m_nIdent;
 	char m_charArrTmp[1024];
-	bool m_bHasEntryTime;
 	bool m_bIsMsg;
 	bool m_bIsObject;
 	string m_sqlFileName;

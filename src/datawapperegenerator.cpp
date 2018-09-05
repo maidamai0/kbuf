@@ -8,7 +8,6 @@ DataWappereGenerator::DataWappereGenerator(const ProtoMessage &msg, string sqlfi
 	m_msg(msg),
 	m_bGuardStart(true),
 	m_nIdent(0),
-	m_bHasEntryTime(false),
 	m_bIsMsg(false),
 	m_bIsObject(false),
 	m_sqlFileName(sqlfile)
@@ -28,15 +27,6 @@ void DataWappereGenerator::GenerateDataWapper()
 	{
 		g_logger->info("kb: already compiled");
 		return;
-	}
-
-	// 不是存列表类型，并且没有定义EntryTime字段
-	for(const auto & key : m_msg.m_vecFields)
-	{
-		if(key.name == "EntryTime")
-		{
-			m_bHasEntryTime = true;
-		}
 	}
 
 	for(const auto & msg : m_msg.m_VecSubMsg)
@@ -354,7 +344,7 @@ void DataWappereGenerator::createWithData()
 	WriteWithNewLine(m_charArrTmp);
 
 	// in case of msg has no entryTime
-	if(m_bHasEntryTime)
+	if(m_msg.bHasEntryTime)
 	{
 		WriteWithNewLine("sp->m_data->set_entrytime(time(nullptr));");
 	}
@@ -631,6 +621,12 @@ void DataWappereGenerator::ToStringWriter()
 
 		for(const auto & key : m_msg.m_vecFields)
 		{
+			// GeoPoint
+			if(key.isGeoPoint)
+			{
+				continue;
+			}
+
 			if(m_msg.name == "DispositionNotificationListMsg")
 			{
 				if(key.name == "ReceiveAddr")
@@ -639,9 +635,25 @@ void DataWappereGenerator::ToStringWriter()
 				}
 			}
 
-			sprintf(m_charArrTmp, "writer.String(\"%s\");", key.name.c_str());
-			WriteWithNewLine(m_charArrTmp);
+			// key
+			if(key.name == "Orientation" && m_msg.name == "GPSData_Proto")
+			{
+				WriteWithNewLine("if(read)\n"
+								 "{\n"
+								 "\twriter.String(\"Direction\");\n"
+								 "}\n"
+								 "else\n"
+								 "{\n"
+								 "\twriter.String(\"Orientation\");\n"
+								 "}");
+			}
+			else
+			{
+				sprintf(m_charArrTmp, "writer.String(\"%s\");", key.name.c_str());
+				WriteWithNewLine(m_charArrTmp);
+			}
 
+			// value
 			if(key.type == "string")
 			{
 				sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
@@ -703,6 +715,38 @@ void DataWappereGenerator::ToStringWriter()
 			WriteWithNewLine(m_charArrTmp);
 			WriteWithNewLine();
 		}
+	}
+
+	// GeoPoint
+	if(!m_msg.GeoPoint.lat.name.empty())
+	{
+		sprintf(m_charArrTmp,
+				"if(!read)\n"
+				"{\n"
+				"\twriter.String(\"%s\");\n"
+				"\twriter.StartObject();\n"
+				"\twriter.String(\"lon\");\n"
+				"\twriter.Double(m_data->%s());\n"
+				"\twriter.String(\"lat\");\n"
+				"\twriter.Double(m_data->%s());\n"
+				"\twriter.EndObject();\n"
+				"}\n"
+				"else\n"
+				"{\n"
+				"\twriter.String(\"%s\");\n"
+				"\twriter.Double(m_data->%s());\n"
+				"\t\n"
+				"\twriter.String(\"%s\");\n"
+				"\twriter.Double(m_data->%s());\n"
+				"}",
+				m_msg.GeoPoint.name.c_str(),
+				m_msg.GeoPoint.lon.fget.c_str(),
+				m_msg.GeoPoint.lat.fget.c_str(),
+				m_msg.GeoPoint.lon.name.c_str(),
+				m_msg.GeoPoint.lon.fget.c_str(),
+				m_msg.GeoPoint.lat.name.c_str(),
+				m_msg.GeoPoint.lat.fget.c_str());
+		WriteWithNewLine(m_charArrTmp);
 	}
 
 	// 复合类型
@@ -792,6 +836,12 @@ void DataWappereGenerator::ToStringWriter()
 				continue;
 			}
 
+			// gpsdata save alone
+			if(msg.fieldName == "GPSData")
+			{
+				continue;
+			}
+
 			if(msg.isArrray)
 			{
 				sprintf(m_charArrTmp,
@@ -838,27 +888,30 @@ void DataWappereGenerator::ToStringWriter()
 		}
 	}
 
-	WriteWithNewLine("if(!read)\n{");
-	++m_nIdent;
-
-	// entryTime
-	if(!m_bHasEntryTime && m_bIsMsg)
+	if(m_msg.name != "SubImageInfo_Proto" &&
+			m_msg.name != "Feature_Proto" &&
+			(!m_msg.bHasEntryTime || !m_msg.bHasExpireDate))
 	{
-		WriteWithNewLine("writer.String(\"EntryTime\");\n"
-						 "writer.String(UnixTimeToPrettyTime(getEntryTime()).c_str());");
+		WriteWithNewLine("if(!read)\n{");
+		++m_nIdent;
+
+		// entryTime
+		if(!m_msg.bHasEntryTime)
+		{
+			WriteWithNewLine("writer.String(\"EntryTime\");\n"
+							 "writer.String(UnixTimeToPrettyTime(getEntryTime()).c_str());");
+		}
+
+		// expiredTime
+		if(!m_msg.bHasExpireDate)
+		{
+			WriteWithNewLine("writer.String(\"KDExpiredDate\");\n"
+							 "writer.String(UnixTimeToPrettyTime(getExpiredTime()).c_str());");
+		}
+
+		--m_nIdent;
+		WriteWithNewLine("}");
 	}
-
-	// expiredTime
-	if(m_bIsMsg)
-	{
-		WriteWithNewLine("writer.String(\"KDExpiredDate\");\n"
-						 "writer.String(UnixTimeToPrettyTime(getExpiredTime()).c_str());");
-	}
-
-	--m_nIdent;
-	WriteWithNewLine("}");
-
-
 
 	WriteWithNewLine();
 
@@ -919,7 +972,14 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 			WriteWithNewLine(m_charArrTmp);
 			++m_nIdent;
 
-			sprintf(m_charArrTmp, "writer.String(\"%s\");", key.name.c_str());
+			if(key.name == "Orientation" && m_msg.name == "GPSData_Proto")
+			{
+				sprintf(m_charArrTmp, "writer.String(\"%s\");", "Direction");
+			}
+			else
+			{
+				sprintf(m_charArrTmp, "writer.String(\"%s\");", key.name.c_str());
+			}
 			WriteWithNewLine(m_charArrTmp);
 
 			if(key.type == "string")
@@ -1082,43 +1142,57 @@ void DataWappereGenerator::DeSerial()
 
 void DataWappereGenerator::FromString()
 {
-	WriteWithNewLine("bool FromString(const string &str)\n"
+	WriteWithNewLine("bool FromString(const string &str, bool validate = true)\n"
 					 "{");
 	++m_nIdent;
 
 	sprintf(m_charArrTmp,
 			"auto p = new C%s(this->m_data);\n"
-			"viidJsonReadHandler handler(p);\n",
+			"viidJsonReadHandler handler(p);\n"
+			"Reader rd;\n"
+			"StringStream ss(str.c_str());\n",
 			m_msg.name.c_str());
 
 	WriteWithNewLine(m_charArrTmp);
 
 	WriteWithNewLine();
 
-	sprintf(m_charArrTmp, "Reader rd;\n"
-						  "StringStream ss(str.c_str());\n"
-						  "GenericSchemaValidator<SchemaDocument, viidJsonReadHandler> validator(*(g_%sSmDoc), handler);\n"
-						  "ParseResult ok = rd.Parse<kParseValidateEncodingFlag>(ss, validator);\n"
-						  "if(!validator.IsValid())\n"
-						  "{\n"
-						  "\tStringBuffer sb;\n"
-						  "\tWriter<StringBuffer> w(sb);\n"
-						  "\tvalidator.GetError().Accept(w);\n"
-						  "\tSetErrStr(sb.GetString());\n"
-						  "\n"
-						  "\treturn false;\n"
-						  "}else if(!ok)\n"
-						  "{\n"
-						  "\tstring err(GetParseError_En(ok.Code()));\n"
-						  "\tSetErrStr(err);\n"
-						  "\treturn false;\n"
-						  "}",
+	sprintf(m_charArrTmp,
+			"if(likely(validate))\n"
+			"{\n"
+			"\tGenericSchemaValidator<SchemaDocument, viidJsonReadHandler> validator(*(g_%sSmDoc), handler);\n"
+			"\tParseResult ok = rd.Parse<kParseValidateEncodingFlag>(ss, validator);\n"
+			"\tif(!validator.IsValid())\n"
+			"\t{\n"
+			"\t\tStringBuffer sb;\n"
+			"\t\tWriter<StringBuffer> w(sb);\n"
+			"\t\tvalidator.GetError().Accept(w);\n"
+			"\t\tSetErrStr(sb.GetString());\n"
+			"\t\treturn false;\n"
+			"\t}\n"
+			"\telse if(!ok)\n"
+			"\t{\n"
+			"\t\tstring err(GetParseError_En(ok.Code()));\n"
+			"\t\tSetErrStr(err);\n"
+			"\t\treturn false;\n"
+			"\t}\n"
+			"}\n"
+			"else\n"
+			"{\n"
+			"\tParseResult ok = rd.Parse(ss, handler);\n"
+			"\tif(!ok)\n"
+			"\t{\n"
+			"\t\tstring err(GetParseError_En(ok.Code()));\n"
+			"\t\tSetErrStr(err);\n"
+			"\t\treturn false;\n"
+			"\t}\n"
+			"}\n",
 			m_msg.name.c_str());
 
 	WriteWithNewLine(m_charArrTmp);
 
 	// EntryTime
-	if(m_bHasEntryTime)
+	if(m_msg.bHasEntryTime)
 	{
 		WriteWithNewLine("m_data->set_entrytime(time(nullptr));");
 	}
@@ -1274,7 +1348,7 @@ void DataWappereGenerator::getSet()
 */
 
 	// EntryTime特殊处理
-	if(m_bHasEntryTime)
+	if(m_msg.bHasEntryTime)
 	{
 		// overload EntryTime set/get
 		WriteWithNewLine("void setEntryTime(const time_t src) {m_data->set_entrytime(src);}\n"
@@ -1426,7 +1500,14 @@ void DataWappereGenerator::set(string fun, string type)
 
 void DataWappereGenerator::CaseValue(const JsonKey &field, bool intBeStrinig)
 {
-	sprintf(m_charArrTmp, "case \"%s\"_hash: // %lu",field.name.c_str(), get_str_hash(field.name.c_str()));
+	if(field.name == "Orientation" && m_msg.name == "GPSData_Proto")
+	{
+		sprintf(m_charArrTmp, "case \"%s\"_hash: // %lu","Direction", get_str_hash("Direction"));
+	}
+	else
+	{
+		sprintf(m_charArrTmp, "case \"%s\"_hash: // %lu",field.name.c_str(), get_str_hash(field.name.c_str()));
+	}
 	WriteWithNewLine(m_charArrTmp);
 
 	++m_nIdent;

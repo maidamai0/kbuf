@@ -290,7 +290,8 @@ bool protoGenerator::scan()
 				{
 					if(name.compare(name.length()-t.length(), t.length(), t) == 0 ||
 							name == "TimeUpLimit" ||
-							name =="TimeLowLimit")
+							name =="TimeLowLimit" ||
+							name == "KDExpiredDate")
 					{
 						isTime = true;
 						type = "int64";
@@ -299,6 +300,7 @@ bool protoGenerator::scan()
 					if(name == "EntryTime")
 					{
 						isEntryTime = true;
+						m_msg.bHasEntryTime = true;
 					}
 				}
 			}
@@ -311,6 +313,12 @@ bool protoGenerator::scan()
 		}
 
 		JsonKey key;
+
+		if(name  == "Direction" && m_msg.name == "GPSData_Proto")
+		{
+			// gpsdata/direction special handle
+			name = "Orientation";
+		}
 
 		key.name = name;
 
@@ -344,6 +352,26 @@ bool protoGenerator::scan()
 		ToLowCase(key.fget);
 
 		key.len = len;
+
+		if(isLon(key.name))
+		{
+			key.isGeoPoint = true;
+			m_msg.GeoPoint.lon = key;
+
+		}else if(isLat(key.name))
+		{
+			key.isGeoPoint = true;
+			m_msg.GeoPoint.lat = key;
+
+			if(key.name.find("ShotPlace") != string::npos)
+			{
+				m_msg.GeoPoint.name = "ShotPlaceLocation";
+			}
+			else
+			{
+				m_msg.GeoPoint.name = "Location";
+			}
+		}
 
 		m_msg.m_vecFields.push_back(key);
 
@@ -665,4 +693,14 @@ bool protoGenerator::WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringB
 bool protoGenerator::isComplexType(string type)
 {
 	return (type == "object" || type == "array");
+}
+
+bool protoGenerator::isLon(string str)
+{
+	return (str == "Longitude" || str == "ShotPlaceLongitude");
+}
+
+bool protoGenerator::isLat(string str)
+{
+	return (str == "Latitude" || str == "ShotPlaceLatitude");
 }
