@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <algorithm>
 
 using namespace rapidjson;
 
@@ -376,6 +377,18 @@ bool protoGenerator::scan()
 		m_msg.m_vecFields.push_back(key);
 
 		ProtoKey proKey(type, name);
+
+		// these two name has been wrong
+		// but we wont't want to change protobuf
+		if(proKey.name == "DisappearTime" && m_msg.name == "MotorVehicle_Proto")
+		{
+			proKey.name = "DisAppearTime";
+		}
+
+		if(proKey.name == "FaceDisappearTime" && m_msg.name == "Face_Proto")
+		{
+			proKey.name = "FaceDisAppearTime";
+		}
 		m_msg.m_VecProtoKey.push_back(proKey);
 	}
 
@@ -440,6 +453,7 @@ void protoGenerator::write()
 	}
 
 	// import
+	vector<string> imports;
 	for(const auto &msg : m_msg.m_VecSubMsg)
 	{
 		string import(msg.fileName);
@@ -454,8 +468,17 @@ void protoGenerator::write()
 			import = "feature";
 		}
 
+		if(find(imports.begin(), imports.end(), import) == imports.end())
+		{
+			imports.push_back(import);
+		}
+	}
+
+	for(const string & import : imports)
+	{
 		m_dstFile << "import \"" << import << ".proto" << "\";" << endl;
 	}
+
 	m_dstFile << endl;
 
 	// message name

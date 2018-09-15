@@ -58,7 +58,9 @@ void DataWappereGenerator::GenerateDataWapper()
 	// message has schema
 	if(m_msg.fileName.find("msg") != string::npos ||
 			m_msg.fileName == "videosliceinfo" ||
-			m_msg.fileName == "imageinfo")
+			m_msg.fileName == "imageinfo" ||
+			m_msg.fileName == "imagelist" ||
+			m_msg.fileName == "videoslicelist")
 	{
 		m_bIsMsg = true;
 	}
@@ -171,8 +173,11 @@ void DataWappereGenerator::GenerateDataWapper()
 	getSet();
 	WriteWithNewLine();
 
-	pri();
-	InitSchema();
+	if(m_bIsMsg)
+	{
+		pri();
+		InitSchema();
+	}
 
 	pri();
 	Variable();
@@ -235,6 +240,12 @@ void DataWappereGenerator::Headers()
 	WriteWithNewLine(m_charArrTmp);
 
 	WriteWithNewLine("#include <sstream>");
+
+	if(m_bIsMsg)
+	{
+		WriteWithNewLine("#include <mutex>");
+	}
+
 	WriteWithNewLine("#include \"google/protobuf/util/json_util.h\"");
 	WriteWithNewLine("#include \"viidbasedata.h\"");
 	WriteWithNewLine("#include \"viidjsonreadhandler.h\"");
@@ -259,7 +270,7 @@ void DataWappereGenerator::Schema()
 		return;
 	}
 
-	char tmp[1024*1024] = {0};
+	char tmp[1024*1024*2] = {0};
 	string schema = TextToCpp(m_msg.m_strSchema);
 
 	sprintf(tmp,"static const char* g_str%sSchema =\n%s;",
@@ -280,8 +291,15 @@ void DataWappereGenerator::NameSpace()
 
 void DataWappereGenerator::FileStaticVar()
 {
+	if(!m_bIsMsg)
+	{
+		return;
+	}
+
 	sprintf(m_charArrTmp, "static Document *g_%sDoc = nullptr;\n"
-						  "static SchemaDocument *g_%sSmDoc = nullptr;",
+						  "static SchemaDocument *g_%sSmDoc = nullptr;\n"
+						  "static mutex g_%sMutex;",
+			m_msg.name.c_str(),
 			m_msg.name.c_str(),
 			m_msg.name.c_str());
 
@@ -369,22 +387,63 @@ void DataWappereGenerator::construct()
 	++m_nIdent;
 
 	sprintf(m_charArrTmp, "m_data = new %s;\n"
-						  "m_bOutData = false;\n"
-						  "InitSchema();\n",
+						  "m_bOutData = false;\n",
 			m_msg.name.c_str());
 	WriteWithNewLine(m_charArrTmp);
+	if(m_bIsMsg)
+	{
+		WriteWithNewLine("InitSchema();");
+	}
+
+	if(m_msg.name == "ImageListObject")
+	{
+		WriteWithNewLine("SetType(CT_IM_NO_OUT);");
+	}
+	else if(m_msg.name == "VideoSliceListObject")
+	{
+		WriteWithNewLine("SetType(CT_VS_NO_OUT);");
+	}
+	else if(m_msg.name == "ImageListMsg")
+	{
+		WriteWithNewLine("SetType(CT_INV);");
+	}
+	else if(m_msg.name == "VideoSliceListMsg")
+	{
+		WriteWithNewLine("SetType(CT_INV);");
+	}
 
 	--m_nIdent;
 	WriteWithNewLine("}\n");
 
-	// constructor witout parameter of 'm_data'
+	// constructor with parameter of 'm_data'
 	sprintf(m_charArrTmp, "C%s(%s *data)\n{",name.c_str(), m_msg.name.c_str());
 	WriteWithNewLine(m_charArrTmp);
 	++m_nIdent;
 
 	WriteWithNewLine("m_data = data;\n"
-					 "m_bOutData = true;\n"
-					 "InitSchema();\n");
+					 "m_bOutData = true;\n");
+
+	if(m_bIsMsg)
+	{
+		WriteWithNewLine("InitSchema();");
+	}
+
+	if(m_msg.name == "ImageListObject")
+	{
+		WriteWithNewLine("SetType(CT_IM_NO_OUT);");
+	}
+	else if(m_msg.name == "VideoSliceListObject")
+	{
+		WriteWithNewLine("SetType(CT_VS_NO_OUT);");
+	}
+	else if(m_msg.name == "ImageListMsg")
+	{
+		WriteWithNewLine("SetType(CT_INV);");
+	}
+	else if(m_msg.name == "VideoSliceListMsg")
+	{
+		WriteWithNewLine("SetType(CT_INV);");
+	}
 
 	--m_nIdent;
 	WriteWithNewLine("}\n");
@@ -414,18 +473,18 @@ void DataWappereGenerator::InitSchema()
 	WriteWithNewLine("void InitSchema()\n{");
 	++m_nIdent;
 
-	if(m_msg.fileName.find("msg") == string::npos)
+	if(!m_bIsMsg)
 	{
 		WriteWithNewLine("return;");
 	}
 	else
 	{
-		sprintf(m_charArrTmp, "if(!g_%sSmDoc)\n"
-							  "{\n"
-							  "\tg_%sDoc = new Document;\n"
-							  "\tg_%sDoc->Parse(g_str%sSchema);\n"
-							  "\tg_%sSmDoc = new SchemaDocument(*g_%sDoc);\n"
-							  "}\n",
+		sprintf(m_charArrTmp, "g_%sMutex.lock();\n"
+							  "g_%sDoc = new Document;\n"
+							  "g_%sDoc->Parse(g_str%sSchema);\n"
+							  "g_%sSmDoc = new SchemaDocument(*g_%sDoc);\n"
+							  "g_%sMutex.unlock();\n",
+				m_msg.name.c_str(),
 				m_msg.name.c_str(),
 				m_msg.name.c_str(),
 				m_msg.name.c_str(),
@@ -621,6 +680,21 @@ void DataWappereGenerator::ToStringWriter()
 
 		for(const auto & key : m_msg.m_vecFields)
 		{
+			// subimageinfo special handle
+			if(m_msg.name == "SubImageInfo_Proto")
+			{
+				if(	key.name == "DeviceType" ||
+					key.name == "DeviceSNNo" ||
+					key.name == "ImeiSn" ||
+					key.name == "APSId" ||
+					key.name  == "SelfDefData" ||
+					key.name == "Data" ||
+					key.name == "DataSize")
+				{
+					continue;
+				}
+			}
+
 			// GeoPoint
 			if(key.isGeoPoint)
 			{
@@ -1146,55 +1220,62 @@ void DataWappereGenerator::FromString()
 					 "{");
 	++m_nIdent;
 
-	sprintf(m_charArrTmp,
-			"auto p = new C%s(this->m_data);\n"
-			"viidJsonReadHandler handler(p);\n"
-			"Reader rd;\n"
-			"StringStream ss(str.c_str());\n",
-			m_msg.name.c_str());
-
-	WriteWithNewLine(m_charArrTmp);
-
-	WriteWithNewLine();
-
-	sprintf(m_charArrTmp,
-			"if(likely(validate))\n"
-			"{\n"
-			"\tGenericSchemaValidator<SchemaDocument, viidJsonReadHandler> validator(*(g_%sSmDoc), handler);\n"
-			"\tParseResult ok = rd.Parse<kParseValidateEncodingFlag>(ss, validator);\n"
-			"\tif(!validator.IsValid())\n"
-			"\t{\n"
-			"\t\tStringBuffer sb;\n"
-			"\t\tWriter<StringBuffer> w(sb);\n"
-			"\t\tvalidator.GetError().Accept(w);\n"
-			"\t\tSetErrStr(sb.GetString());\n"
-			"\t\treturn false;\n"
-			"\t}\n"
-			"\telse if(!ok)\n"
-			"\t{\n"
-			"\t\tstring err(GetParseError_En(ok.Code()));\n"
-			"\t\tSetErrStr(err);\n"
-			"\t\treturn false;\n"
-			"\t}\n"
-			"}\n"
-			"else\n"
-			"{\n"
-			"\tParseResult ok = rd.Parse(ss, handler);\n"
-			"\tif(!ok)\n"
-			"\t{\n"
-			"\t\tstring err(GetParseError_En(ok.Code()));\n"
-			"\t\tSetErrStr(err);\n"
-			"\t\treturn false;\n"
-			"\t}\n"
-			"}\n",
-			m_msg.name.c_str());
-
-	WriteWithNewLine(m_charArrTmp);
-
-	// EntryTime
-	if(m_msg.bHasEntryTime)
+	if(m_bIsMsg)
 	{
-		WriteWithNewLine("m_data->set_entrytime(time(nullptr));");
+//		sprintf(m_charArrTmp,
+//				"auto p = new C%s(this->m_data);\n"
+//				"viidJsonReadHandler handler(p);\n"
+//				"Reader rd;\n"
+//				"StringStream ss(str.c_str());\n",
+//				m_msg.name.c_str());
+
+//		WriteWithNewLine(m_charArrTmp);
+
+		WriteWithNewLine("viidJsonReadHandler handler(this);\n"
+						 "Reader rd;\n"
+						 "StringStream ss(str.c_str());\n");
+
+		WriteWithNewLine();
+
+		sprintf(m_charArrTmp,
+				"if(likely(validate))\n"
+				"{\n"
+				"\tGenericSchemaValidator<SchemaDocument, viidJsonReadHandler> validator(*(g_%sSmDoc), handler);\n"
+				"\tParseResult ok = rd.Parse<kParseValidateEncodingFlag>(ss, validator);\n"
+				"\tif(!validator.IsValid())\n"
+				"\t{\n"
+				"\t\tStringBuffer sb;\n"
+				"\t\tWriter<StringBuffer> w(sb);\n"
+				"\t\tvalidator.GetError().Accept(w);\n"
+				"\t\tSetErrStr(sb.GetString());\n"
+				"\t\treturn false;\n"
+				"\t}\n"
+				"\telse if(!ok)\n"
+				"\t{\n"
+				"\t\tstring err(GetParseError_En(ok.Code()));\n"
+				"\t\tSetErrStr(err);\n"
+				"\t\treturn false;\n"
+				"\t}\n"
+				"}\n"
+				"else\n"
+				"{\n"
+				"\tParseResult ok = rd.Parse(ss, handler);\n"
+				"\tif(!ok)\n"
+				"\t{\n"
+				"\t\tstring err(GetParseError_En(ok.Code()));\n"
+				"\t\tSetErrStr(err);\n"
+				"\t\treturn false;\n"
+				"\t}\n"
+				"}\n",
+				m_msg.name.c_str());
+
+		WriteWithNewLine(m_charArrTmp);
+
+		// EntryTime
+		if(m_msg.bHasEntryTime)
+		{
+			WriteWithNewLine("m_data->set_entrytime(time(nullptr));");
+		}
 	}
 
 	WriteWithNewLine("return true;");
@@ -1375,7 +1456,6 @@ void DataWappereGenerator::ObjectBegin()
 			string lowCaseMessageName(msg.name);
 			ToLowCase(lowCaseMessageName);
 
-
 			// featureList, subImageList special handle
 			if(msg.fieldName == "FeatureList")
 			{
@@ -1388,7 +1468,8 @@ void DataWappereGenerator::ObjectBegin()
 						"\t}",
 						get_str_hash("FeatureObject"));
 
-			}else if(msg.fieldName == "SubImageList")
+			}
+			else if(msg.fieldName == "SubImageList")
 			{
 				sprintf(m_charArrTmp,
 						"case \"SubImageInfoObject\"_hash:// %lu\n"
@@ -1399,19 +1480,83 @@ void DataWappereGenerator::ObjectBegin()
 						"\t}",
 						get_str_hash("SubImageInfoObject"));
 
-			}else
+			}
+			else
 			{
-				sprintf(m_charArrTmp,
-						"case \"%s\"_hash:// %lu\n"
-						"\t{\n"
-						"\t\tauto p = m_data->%s();\n"
-						"\t\tnewPtr = new C%s(p);\n"
-						"\t\tbreak;\n"
-						"\t}",
-						msg.fieldName.c_str(),
-						get_str_hash(msg.fieldName.c_str()),
-						msg.fadder.c_str(),
-						msg.name.c_str());
+				if(m_msg.name == "ImageListMsg" && msg.fieldName == "ImageList")
+				{
+					sprintf(m_charArrTmp,
+							"case \"%s\"_hash:// %lu\n"
+							"\t{\n"
+							"\t\tSetType(CT_IM_NO_OBJECT);\n"
+							"\t\tauto p = m_data->%s();\n"
+							"\t\tnewPtr = new C%s(p);\n"
+							"\t\tbreak;\n"
+							"\t}",
+							msg.fieldName.c_str(),
+							get_str_hash(msg.fieldName.c_str()),
+							msg.fadder.c_str(),
+							msg.name.c_str());
+				}
+				else if(m_msg.name == "ImageListMsg" && msg.fieldName == "ImageListObject")
+				{
+					sprintf(m_charArrTmp,
+							"case \"%s\"_hash:// %lu\n"
+							"\t{\n"
+							"\t\tSetType(CT_STD);\n"
+							"\t\tauto p = m_data->%s();\n"
+							"\t\tnewPtr = new C%s(p);\n"
+							"\t\tbreak;\n"
+							"\t}",
+							msg.fieldName.c_str(),
+							get_str_hash(msg.fieldName.c_str()),
+							msg.fadder.c_str(),
+							msg.name.c_str());
+				}
+				else if(m_msg.name == "VideoSliceListMsg" && msg.fieldName == "VideoSliceList")
+				{
+					sprintf(m_charArrTmp,
+							"case \"%s\"_hash:// %lu\n"
+							"\t{\n"
+							"\t\tSetType(CT_VS_NO_OBJECT);\n"
+							"\t\tauto p = m_data->%s();\n"
+							"\t\tnewPtr = new C%s(p);\n"
+							"\t\tbreak;\n"
+							"\t}",
+							msg.fieldName.c_str(),
+							get_str_hash(msg.fieldName.c_str()),
+							msg.fadder.c_str(),
+							msg.name.c_str());
+				}
+				else if(m_msg.name == "VideoSliceListMsg" && msg.fieldName == "VideoSliceListObject")
+				{
+					sprintf(m_charArrTmp,
+							"case \"%s\"_hash:// %lu\n"
+							"\t{\n"
+							"\t\tSetType(CT_STD);\n"
+							"\t\tauto p = m_data->%s();\n"
+							"\t\tnewPtr = new C%s(p);\n"
+							"\t\tbreak;\n"
+							"\t}",
+							msg.fieldName.c_str(),
+							get_str_hash(msg.fieldName.c_str()),
+							msg.fadder.c_str(),
+							msg.name.c_str());
+				}
+				else
+				{
+					sprintf(m_charArrTmp,
+							"case \"%s\"_hash:// %lu\n"
+							"\t{\n"
+							"\t\tauto p = m_data->%s();\n"
+							"\t\tnewPtr = new C%s(p);\n"
+							"\t\tbreak;\n"
+							"\t}",
+							msg.fieldName.c_str(),
+							get_str_hash(msg.fieldName.c_str()),
+							msg.fadder.c_str(),
+							msg.name.c_str());
+				}
 			}
 
 			WriteWithNewLine(m_charArrTmp);
@@ -1461,6 +1606,12 @@ void DataWappereGenerator::set(string fun, string type)
 		{
 			if(field.type == type)
 			{
+				// time is int but will given as string
+				if(field.isTime)
+				{
+					continue;
+				}
+
 				CaseValue(field);
 			}
 
@@ -1514,45 +1665,19 @@ void DataWappereGenerator::CaseValue(const JsonKey &field, bool intBeStrinig)
 	WriteWithNewLine("{");
 	++m_nIdent;
 
-	if(field.type == "string")
+	if(intBeStrinig)	// 目前只有int型的，会有这种情况
 	{
-		if(field.type == "int64")
+		// time is int
+		if(field.isEntryTime)
 		{
-//			string t = "Time";
-//			bool isTime = false;
-//			bool isEntryTime = false;
-
-//			if(field.name.length() > t.length())
-//			{
-//				isTime = (field.name.compare(field.name.length()-t.length(), t.length(), t) == 0);
-//				isEntryTime = (field.name == "EntryTime");
-//			}
-
-			if(field.isEntryTime)
-			{
-				// EntryTime should set by viid
-				// TODO break;
-				// sprintf(m_charArrTmp, "m_data->%s(RawTimeToPretty(time(nullptr)));", field.fset.c_str());
-				sprintf(m_charArrTmp, "%s", "break;");
-			}
-			else if(field.isTime)
-			{
-				// xxTime, string as YYYYMMDDHHMMSS
-				sprintf(m_charArrTmp, "{\n\tstring s(value);\n"
-									  "\tm_data->%s(RawTimeToPretty(s));\n}",
-						field.fset.c_str());
-			}
+			// EntryTime should set by viid
+			// TODO break;
+			// sprintf(m_charArrTmp, "m_data->%s(RawTimeToPretty(time(nullptr)));", field.fset.c_str());
+			sprintf(m_charArrTmp, "%s", "// viid generate");
 		}
-		else
+		else if(field.isTime)
 		{
-			sprintf(m_charArrTmp, "m_data->%s(value);", field.fset.c_str());
-		}
-	}
-	else if(intBeStrinig)	// 目前只有int型的，会有这种情况
-	{
-		if(field.isTime)
-		{
-			sprintf(m_charArrTmp, "m_data->%s(RawTimeToUnixTime(value));",field.fset.c_str());
+			sprintf(m_charArrTmp, "m_data->%s(RawTimeToUnixTime(value));", field.fset.c_str());
 		}
 		else
 		{
