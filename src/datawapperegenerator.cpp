@@ -17,11 +17,11 @@ DataWappereGenerator::DataWappereGenerator(const ProtoMessage &msg, string sqlfi
 
 void DataWappereGenerator::GenerateDataWapper()
 {
-    if(m_msg.name.empty())
-    {
-        g_logger->info("kb: Nothing to be done");
-        return;
-    }
+	if(m_msg.name.empty())
+	{
+		g_logger->info("kb: Nothing to be done");
+		return;
+	}
 
 	if(m_msg.isNew)
 	{
@@ -60,7 +60,9 @@ void DataWappereGenerator::GenerateDataWapper()
 			m_msg.fileName == "videosliceinfo" ||
 			m_msg.fileName == "imageinfo" ||
 			m_msg.fileName == "imagelist" ||
-			m_msg.fileName == "videoslicelist")
+			m_msg.fileName == "videoslicelist" ||
+			m_msg.fileName == "subscribecancel" ||
+			m_msg.fileName == "dispositioncancel")
 	{
 		m_bIsMsg = true;
 	}
@@ -479,11 +481,22 @@ void DataWappereGenerator::InitSchema()
 	}
 	else
 	{
-		sprintf(m_charArrTmp, "g_%sMutex.lock();\n"
-							  "g_%sDoc = new Document;\n"
-							  "g_%sDoc->Parse(g_str%sSchema);\n"
-							  "g_%sSmDoc = new SchemaDocument(*g_%sDoc);\n"
-							  "g_%sMutex.unlock();\n",
+
+
+		sprintf(m_charArrTmp,
+							"if(g_%sSmDoc)\n"
+							"{\n"
+							"\treturn;\n"
+							"}\n"
+							"g_%sMutex.lock();\n"
+							"if(!g_%sSmDoc)\n{\n"
+							"\tg_%sDoc = new Document;\n"
+							"\tg_%sDoc->Parse(g_str%sSchema);\n"
+							"\tg_%sSmDoc = new SchemaDocument(*g_%sDoc);\n"
+							"}\n"
+							"g_%sMutex.unlock();\n",
+				m_msg.name.c_str(),
+				m_msg.name.c_str(),
 				m_msg.name.c_str(),
 				m_msg.name.c_str(),
 				m_msg.name.c_str(),
@@ -674,7 +687,7 @@ void DataWappereGenerator::ToStringWriter()
 	WriteWithNewLine("writer.StartObject();");
 	WriteWithNewLine();
 
-	// 简单类型，简单类型不是array
+	// 绠€鍗曠被鍨嬶紝绠€鍗曠被鍨嬩笉鏄痑rray
 	if(!m_msg.m_vecFields.empty())
 	{
 
@@ -688,7 +701,6 @@ void DataWappereGenerator::ToStringWriter()
 					key.name == "ImeiSn" ||
 					key.name == "APSId" ||
 					key.name  == "SelfDefData" ||
-					key.name == "Data" ||
 					key.name == "DataSize")
 				{
 					continue;
@@ -706,6 +718,21 @@ void DataWappereGenerator::ToStringWriter()
 				if(key.name == "ReceiveAddr")
 				{
 					continue;
+				}
+			}
+
+			// data in image will be move to subimage
+			if(m_msg.name == "SubImageInfo_Proto")
+			{
+				if(key.name == "Data")
+				{
+					WriteWithNewLine("if(read)\n"
+									 "{\n"
+									 "\twriter.String(\"Data\");\n"
+									 "\twriter.String(m_data->data().c_str());\n"
+									 "}");
+					continue;
+
 				}
 			}
 
@@ -744,7 +771,7 @@ void DataWappereGenerator::ToStringWriter()
 			{
 				if(key.isEntryTime)
 				{
-					// 保持一致
+					// 淇濇寔涓€鑷
 					sprintf(m_charArrTmp, "if(read)\n"
 										  "{\n"
 										  "\twriter.String(%s(getEntryTime()).c_str());\n"
@@ -823,7 +850,7 @@ void DataWappereGenerator::ToStringWriter()
 		WriteWithNewLine(m_charArrTmp);
 	}
 
-	// 复合类型
+	// 澶嶅悎绫诲瀷
 	if(!m_msg.m_VecSubMsg.empty())
 	{
 		for(const auto &msg : m_msg.m_VecSubMsg)
@@ -913,6 +940,49 @@ void DataWappereGenerator::ToStringWriter()
 			// gpsdata save alone
 			if(msg.fieldName == "GPSData")
 			{
+				if(msg.isArrray)
+				{
+					sprintf(m_charArrTmp,
+							"if(m_data->%s() && read)\n"
+							"{\n"
+							"\n"
+							"\twriter.String(\"%s\");\n"
+							"\twriter.StartArray();\n"
+							"\tfor(auto & RawP : *(m_data->mutable_%s()))\n"
+							"\t{\n"
+							"\t\tauto sp = C%s::Create%sWithData(&RawP);\n"
+							"\t\tsp->setEntryTime(getEntryTime());\n"
+							"\t\tsp->setExpiredTime(getExpiredTime());\n"
+							"\t\tsp->ToStringWriter(writer, read);\n"
+							"\t}\n"
+							"\twriter.EndArray();\n"
+							"}",
+							msg.fsize.c_str(),
+							msg.fieldName.c_str(),
+							msg.fget.c_str(),
+							msg.name.c_str(),
+							msg.name.c_str());
+				}
+				else
+				{
+					sprintf(m_charArrTmp,
+							"if(m_data->has_%s() && read)\n{\n"
+							"\tauto p = m_data->%s();\n"
+							"\tauto sp = C%s::Create%sWithData(&p);\n"
+							"\tsp->setEntryTime(getEntryTime());\n"
+							"\tsp->setExpiredTime(getExpiredTime());\n"
+							"\twriter.String(\"%s\");\n"
+							"\tsp->ToStringWriter(writer, read);\n}\n",
+							msg.fget.c_str(),
+							msg.fget.c_str(),
+							msg.name.c_str(),
+							msg.name.c_str(),
+							msg.fieldName.c_str());
+				}
+
+				WriteWithNewLine(m_charArrTmp);
+
+				WriteWithNewLine();
 				continue;
 			}
 
@@ -1035,7 +1105,7 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 
 	WriteWithNewLine("__attribute__((unused)) auto end = fields.end();");
 
-	// 应该不会指定复制类型
+	// 搴旇涓嶄細鎸囧畾澶嶅埗绫诲瀷
 	if(!m_msg.m_vecFields.empty())
 	{
 		for(const auto & key : m_msg.m_vecFields)
@@ -1074,7 +1144,7 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 
 				if(key.isEntryTime)
 				{
-					// 保持一致
+					// 淇濇寔涓€鑷
 					sprintf(m_charArrTmp, "writer.String(%s(getEntryTime()).c_str());\n",
 							"UnixTimeToRawTime");
 				}
@@ -1109,7 +1179,7 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 		}
 	}
 
-	// 复合类型
+	// 澶嶅悎绫诲瀷
 	if(!m_msg.m_VecSubMsg.empty())
 	{
 		for(const auto &msg : m_msg.m_VecSubMsg)
@@ -1337,7 +1407,7 @@ void DataWappereGenerator::getSet()
 	WriteWithNewLine();
 
 	/*
-	// 简单类型
+	// 绠€鍗曠被鍨
 	if(!m_msg.m_mapFields.empty())
 	{
 		for(const auto kv : m_msg.m_mapFields)
@@ -1375,7 +1445,7 @@ void DataWappereGenerator::getSet()
 		}
 	}
 
-	// 复杂类型，size， get， set
+	// 澶嶆潅绫诲瀷锛宻ize锛get锛set
 	if(!m_msg.m_VecSubMsg.empty())
 	{
 		for(const auto msg : m_msg.m_VecSubMsg)
@@ -1428,7 +1498,7 @@ void DataWappereGenerator::getSet()
 	}
 */
 
-	// EntryTime特殊处理
+	// EntryTime鐗规畩澶勭悊
 	if(m_msg.bHasEntryTime)
 	{
 		// overload EntryTime set/get
@@ -1615,7 +1685,7 @@ void DataWappereGenerator::set(string fun, string type)
 				CaseValue(field);
 			}
 
-			// double类型的数据，有时可能会以int形式给出，因此在int里也写一份
+			// double绫诲瀷鐨勬暟鎹紝鏈夋椂鍙兘浼氫互int褰㈠紡缁欏嚭锛屽洜姝ゅ湪int閲屼篃鍐欎竴浠
 			if(type == "int64")
 			{
 				if(field.type == "double")
@@ -1624,7 +1694,7 @@ void DataWappereGenerator::set(string fun, string type)
 				}
 			}
 
-			// 有些字段是int，但是有可能会以string的形式给出
+			// 鏈変簺瀛楁鏄痠nt锛屼絾鏄湁鍙兘浼氫互string鐨勫舰寮忕粰鍑
 			if(type == "string")
 			{
 				if((field.type == "int64") && (field.intCanBeStr || field.isTime))
@@ -1665,7 +1735,7 @@ void DataWappereGenerator::CaseValue(const JsonKey &field, bool intBeStrinig)
 	WriteWithNewLine("{");
 	++m_nIdent;
 
-	if(intBeStrinig)	// 目前只有int型的，会有这种情况
+	if(intBeStrinig)	// 鐩墠鍙湁int鍨嬬殑锛屼細鏈夎繖绉嶆儏鍐
 	{
 		// time is int
 		if(field.isEntryTime)
@@ -1673,15 +1743,27 @@ void DataWappereGenerator::CaseValue(const JsonKey &field, bool intBeStrinig)
 			// EntryTime should set by viid
 			// TODO break;
 			// sprintf(m_charArrTmp, "m_data->%s(RawTimeToPretty(time(nullptr)));", field.fset.c_str());
+			WriteWithNewLine("if(unlikely(!CheckDateAfterSchema(value)))\n"
+							 "{\n"
+							 "\treturn false;\n"
+							 "}");
 			sprintf(m_charArrTmp, "%s", "// viid generate");
 		}
 		else if(field.isTime)
 		{
+			WriteWithNewLine("if(unlikely(!CheckDateAfterSchema(value)))\n"
+							 "{\n"
+							 "\treturn false;\n"
+							 "}");
 			sprintf(m_charArrTmp, "m_data->%s(RawTimeToUnixTime(value));", field.fset.c_str());
 		}
 		else
 		{
 			// "3" -> 3
+			WriteWithNewLine("if(unlikely(!AllisDigit(value)))\n"
+							 "{\n"
+							 "\treturn false;\n"
+							 "}");
 			sprintf(m_charArrTmp, "m_data->%s(stringToInt(value));",field.fset.c_str());
 		}
 	}
