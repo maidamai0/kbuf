@@ -43,6 +43,8 @@ struct JsonKey
 	bool isGeoPoint;			// longitude or latitude
 };
 
+// key-value in protobuf
+// used to keep the same order in schema and protobuf
 struct ProtoKey
 {
 	 ProtoKey(string type, string name, bool array=false):
@@ -57,6 +59,7 @@ struct ProtoKey
 	bool isArray;
 };
 
+// geoPoint type in elasticSearch
 struct CGeoPoint
 {
 	CGeoPoint(){}
@@ -71,30 +74,32 @@ struct ProtoMessage
 	ProtoMessage():isArrray(false), modifyTime(0), isNew(false),
 	bHasEntryTime(false), bHasExpireDate(false){}
 
-	string fileName;		// 没有后缀名,import,include是使用
+	string fileName;		// filename with no postfix from schema file
 	string name;			// title in json schema, proto message name is name_Proto, c++ class name is CName
-	string fieldName;		// 作为其他message中的一个字段时，字段的名称
+	string fieldName;		// field name in another message
 	hash_t hash;			// fieldname的哈希值
 	string fadder;			// 作为其他message中的一个字段，add函数/mutable
 	string fsize;			// 作为其他message中的一个字段，size函数
 	string fget;			// 作为其他message中的一个字段，get函数
 	bool isArrray;			// 作为其他message中的一个字段时，是否为数组
-    time_t modifyTime;      // schema file modify time
+	time_t modifyTime;      // schema file modify time
 	bool isNew;				// skip new file
 	bool bHasEntryTime;
 	bool bHasExpireDate;
 
-	// 简单类型字段
+	// basic type
 	vector<JsonKey> m_vecFields;
 
-	// 复杂类型字段，即类型是其他message
+	// compound type
 	// first:field name，second:message
 	vector<ProtoMessage> m_VecSubMsg;
 
-	vector<ProtoKey> m_VecProtoKey;		// for order in protobuf
+	// for order in protobuf
+	vector<ProtoKey> m_VecProtoKey;
 
 	CGeoPoint GeoPoint;
 
+	// schema string, used to initialize schema of Rapidjson
 	string m_strSchema;
 };
 
@@ -113,6 +118,7 @@ private:
 	bool isLat(string str);
 	void write();
     bool isComplexType(string type);
+	int Runcmd(const char * cmd);
 
 public:
 	ProtoMessage m_msg;

@@ -15,6 +15,11 @@ __attribute__((unused)) static const char* kTypeNames[] =
 	"Null", "False", "True", "Object", "Array", "String", "Number"
 };
 
+// path for protobuf
+static const string protoPath = "../protobuf/proto/";
+static const string srcPath = "../protobuf/src/";
+static const string incPath = "../protobuf/inc/";
+
 protoGenerator::protoGenerator(string src)
 {
 	size_t pos = src.find_last_of(".");
@@ -36,11 +41,13 @@ bool protoGenerator::GeneratorProto()
 		return false;
 	}
 
-	string file(m_strFileNameNoExt);
-	file.append(".json");
+	string file(m_strFileNameNoExt + ".json");
 
+	// log
 	g_logger->trace("{} scan complete", file);
 
+
+	// write schema
 	rapidjson::StringBuffer buffer;
 	PrettyWriter<StringBuffer> OutWriter(buffer);
 
@@ -49,60 +56,56 @@ bool protoGenerator::GeneratorProto()
 
 	m_msg.m_strSchema = buffer.GetString();
 
+	// write protobuf source file
 	write();
-	string dst("../protobuf/proto/");
-	dst.append(m_strFileNameNoExt);
-	dst.append(".proto");
-	g_logger->trace("{} write copmplete", dst);
+
+	// log
+	g_logger->trace("{} write copmplete",
+					protoPath + m_strFileNameNoExt + ".proto");
 
 	char cmd[1024] = {0};
 
-	dst = m_strFileNameNoExt;
-	dst.append(".proto");
-
-	chdir("../protobuf/proto");
-	getcwd(cwd, sizeof (cwd));
-	g_logger->info("go {} to compile ptoto files...", cwd);
-
-	sprintf(cmd, "protoc --cpp_out=../ $1 %s\n",dst.c_str());
-	if(system(cmd))
+	// invoke protobuf compiler
+	sprintf(cmd, "protoc --proto_path=%s --cpp_out=%s %s\n",
+			protoPath.c_str(),
+			srcPath.c_str(),
+			(m_strFileNameNoExt + ".proto").c_str());
+	if(Runcmd(cmd))
 	{
 		return false;
 	}
 
-	chdir("../");
-	getcwd(cwd, sizeof (cwd));
-	g_logger->info("go {} to move files...", cwd);
-	// go to directory: json/protobuf
+	// modify postfix for cpp files
+	sprintf(cmd, "mv %s.pb.cc %s.pb.cpp",
+			(srcPath + m_strFileNameNoExt).c_str(),
+			(srcPath + m_strFileNameNoExt).c_str());
+	Runcmd(cmd);
 
+	// move head files to incpath
 	struct stat dirInfo;
-	if(stat("./src", &dirInfo))
+	if(stat(incPath.c_str(), &dirInfo))
 	{
 		// dir not exist
-		system("mkdir -p ./src");
+		mkdir(incPath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+//		sprintf(cmd, "");
+//		Runcmd("mkdir -p ./include");
 	}
+	sprintf(cmd, "mv %s.pb.h %s",
+			(srcPath + m_strFileNameNoExt).c_str(),
+			incPath.c_str());
+	Runcmd(cmd);
 
-	sprintf(cmd, "mv %s.pb.cc ./src/%s.pb.cpp",
-			m_strFileNameNoExt.c_str(),
-			m_strFileNameNoExt.c_str());
-	system(cmd);
-
-	if(stat("./include", &dirInfo))
-	{
-		// dir not exist
-		system("mkdir -p ./include");
-	}
-	sprintf(cmd, "mv %s.pb.h ./include/%s.pb.h",
-			m_strFileNameNoExt.c_str(),
-			m_strFileNameNoExt.c_str());
-	system(cmd);
-
-	chdir("../schema");
 	getcwd(cwd, sizeof (cwd));
 	g_logger->info("return to {}...", cwd);
 
 	return true;
 
+}
+
+int protoGenerator::Runcmd(const char * cmd)
+{
+	g_logger->info(cmd);
+	return system(cmd);
 }
 
 bool protoGenerator::scan()
@@ -400,36 +403,36 @@ bool protoGenerator::scan()
 
 void protoGenerator::write()
 {
-    struct stat stInfo;
-    if(stat("../protobuf/proto", &stInfo))
+	struct stat stInfo;
+	if(stat("../protobuf/proto", &stInfo))
 	{
 		// dir not exist
-		system("mkdir -p ../protobuf/proto");
+		Runcmd("mkdir -p ../protobuf/proto");
 	}
 
 	string dst("../protobuf/proto/");
 	dst.append(m_strFileNameNoExt);
 	dst.append(".proto");
 
-    if(!stat(dst.c_str(), &stInfo))
-    {
-        // proto file exists
-        time_t protoMtime = stInfo.st_mtim.tv_sec;
-        string schema(m_strFileNameNoExt);
-        schema.append(".json");
+	if(!stat(dst.c_str(), &stInfo))
+	{
+		// proto file exists
+		time_t protoMtime = stInfo.st_mtim.tv_sec;
+		string schema(m_strFileNameNoExt);
+		schema.append(".json");
 
-        stat(schema.c_str(), &stInfo);
-        time_t schemaMtime = stInfo.st_mtim.tv_sec;
+		stat(schema.c_str(), &stInfo);
+		time_t schemaMtime = stInfo.st_mtim.tv_sec;
 
-        if(protoMtime > schemaMtime)
-        {
-            // proto file is newer than schema file
+		if(protoMtime > schemaMtime)
+		{
+			// FIXME this not work, schema string has dependency
+			// proto file is newer than schema file
 			g_logger->info("{} is newer than {} skip...", dst, schema);
 			m_msg.isNew = true;
-            return;
-        }
-
-    }
+			return;
+		}
+	}
 
 	m_dstFile.open(dst.c_str());
 	if(!m_dstFile.is_open())
@@ -443,9 +446,8 @@ void protoGenerator::write()
 	m_dstFile << endl;
 
 	// java proto name
-//	m_dstFile << "option java_package = \"com.keda.protobuf\";" << endl;
-//	m_dstFile << endl;
-
+	//	m_dstFile << "option java_package = \"com.keda.protobuf\";" << endl;
+	//	m_dstFile << endl;
 	if(m_msg.name == "AnalysisNotify_Proto")
 	{
 		m_dstFile << "option java_package = \"com.keda.protobuf\";" << endl;
@@ -459,7 +461,9 @@ void protoGenerator::write()
 	{
 		string import(msg.fileName);
 
-		// subimageinfo 特殊处理
+		// subimageinfo need special treatment for compatibality(bad)
+		// use subimageinfo[{subimageinfo},{subimageinfo}] instead of
+		// SubImageList:{subimageinfo[{subimageinfo},{subimageinfo}]}
 		if(msg.fieldName == "SubImageList")
 		{
 			import = "subimageinfo";
@@ -469,6 +473,8 @@ void protoGenerator::write()
 			import = "feature";
 		}
 
+		// kbuf will resolve dependency
+		// avoid duplicate imports
 		if(find(imports.begin(), imports.end(), import) == imports.end())
 		{
 			imports.push_back(import);
@@ -479,19 +485,18 @@ void protoGenerator::write()
 	{
 		m_dstFile << "import \"" << import << ".proto" << "\";" << endl;
 	}
-
 	m_dstFile << endl;
 
 	// message name
 	m_dstFile << "message " << m_msg.name << "{" << endl;
 
-	unsigned i = 1;
+	unsigned i = 1;	// protobug need a number for every field
 	for(const auto & key : m_msg.m_VecProtoKey)
 	{
 		string line;
 
 		do{
-			// subimageinfo 特殊处理
+			// subimageinfo
 			if(key.name == "SubImageList")
 			{
 				line.append("repeated SubImageInfo_Proto SubImageList = ");
@@ -500,7 +505,7 @@ void protoGenerator::write()
 				break;
 			}
 
-			// FeatureList 特殊处理
+			// FeatureList
 			if(key.name == "FeatureList")
 			{
 				line.append("repeated Feature_Proto FeatureList = ");
@@ -524,74 +529,12 @@ void protoGenerator::write()
 		}while(false);
 
 		m_dstFile << "\t" << line << endl;
-
 		++i;
 	}
-
-	/*
-	// 简单类型的字段
-	for(const auto &field : m_msg.m_vecFields)
-	{
-
-		string line;
-
-		line.append(field.type);
-		line.append("\t");
-		line.append(field.name);
-		line.append(" = ");
-		line.append(to_string(i));
-		line.append(";");
-
-		m_dstFile << "\t" << line << endl;
-
-		++i;
-	}
-
-	// 复杂类型的字段
-	for(const auto &msg : m_msg.m_VecSubMsg)
-	{
-		string line;
-		do
-		{
-			// subimageinfo 特殊处理
-			if(msg.fieldName == "SubImageList")
-			{
-				line.append("repeated SubImageInfo_Proto SubImageList = ");
-				line.append(to_string((i)));
-				line.append(";");
-				break;
-			}
-
-			if(msg.fieldName == "FeatureList")
-			{
-				line.append("repeated Feature_Proto FeatureList = ");
-				line.append(to_string((i)));
-				line.append(";");
-				break;
-			}
-
-			if(msg.isArrray)
-			{
-				line.append("repeated ");
-			}
-
-			line.append(msg.name);
-			line.append("\t");
-			line.append(msg.fieldName);
-			line.append(" = ");
-			line.append(to_string(i));
-			line.append(";");
-
-		}while(false);
-
-		m_dstFile << "\t" << line << endl;
-
-		++i;
-	}*/
 
 	m_dstFile << "}" << endl;
 
-    g_logger->trace("{} generated", dst.c_str());
+	g_logger->trace("{} generated", dst.c_str());
 
 	m_dstFile.close();
 
