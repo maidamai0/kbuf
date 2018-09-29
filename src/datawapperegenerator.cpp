@@ -481,8 +481,6 @@ void DataWappereGenerator::InitSchema()
 	}
 	else
 	{
-
-
 		sprintf(m_charArrTmp,
 							"if(g_%sSmDoc)\n"
 							"{\n"
@@ -553,14 +551,12 @@ void DataWappereGenerator::ToCdb()
 			if(!pJsonKey)
 			{
 				g_logger->warn("'{}' in [{}] not found in [{}.proto]", cdbkey.name, m_sqlFileName, m_msg.fileName);
-//				sprintf(m_charArrTmp, "// %s not found in proto\n", cdbkey.name.c_str());
-//				WriteWithNewLine(m_charArrTmp);
 				continue;
 			}
 
 			if(cdbkey.type == "string")
 			{
-				if(pJsonKey->type == "string")
+				if(pJsonKey->protoType == "string")
 				{
 					sprintf(m_charArrTmp, "row_mutation_build->SetString(\"%s\", prot->%s());",cdbkey.name.c_str(), pJsonKey->fget.c_str());
 				}
@@ -572,7 +568,7 @@ void DataWappereGenerator::ToCdb()
 			}
 			else if(cdbkey.type == "integer" || cdbkey.type == "long")
 			{
-				if(pJsonKey->type == "int64")
+				if(pJsonKey->protoType == "int64")
 				{
 					sprintf(m_charArrTmp, "row_mutation_build->SetInt64(\"%s\", prot->%s());",cdbkey.name.c_str(), pJsonKey->fget.c_str());
 				}
@@ -591,69 +587,18 @@ void DataWappereGenerator::ToCdb()
 			{
 				sprintf(m_charArrTmp, "row_mutation_build->SetInt64(\"%s\", prot->%s());",cdbkey.name.c_str(), pJsonKey->fget.c_str());
 			}
-			else if(cdbkey.type == "timestamp" && pJsonKey->type == "int64")
+			else if(cdbkey.type == "timestamp" && pJsonKey->protoType == "int64")
 			{
 				sprintf(m_charArrTmp, "row_mutation_build->SetTimestamp(\"%s\", UnixTimeToTimeVal(prot->%s()));",cdbkey.name.c_str(), pJsonKey->fget.c_str());
 			}
 			else
 			{
 				g_logger->error("unkonwn type,cdb: {} in {} at {}, proto: {} in {}\n",
-								cdbkey.type, cdbkey.name, m_sqlFileName, pJsonKey->type, pJsonKey->name);
+								cdbkey.type, cdbkey.name, m_sqlFileName, pJsonKey->protoType, pJsonKey->name);
 			}
 
 			WriteWithNewLine(m_charArrTmp);
 		}
-
-
-//		for(const auto & key : m_msg.m_vecFields)
-//		{
-//			if(key.name == "FaceID" ||
-//			   key.name == "MotorVehicleID")
-//			{
-//				// key in cdb
-//				continue;
-//			}
-
-//			// kdface not write
-//			if(m_msg.fileName == "kdface")
-//			{
-//				if(key.name == "EntryTime" ||
-//						key.name == "TabID")
-//				{
-//					continue;
-//				}
-//			}
-
-//			if(key.type == "string")
-//			{
-//				sprintf(m_charArrTmp, "row_mutation_build->SetString(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
-//			}
-//			else if(key.type == "int64")
-//			{
-//				if(key.isTime)
-//				{
-//					sprintf(m_charArrTmp, "row_mutation_build->SetTimestamp(\"%s\", UnixTimeToTimeVal(prot->%s()));",key.name.c_str(), key.fget.c_str());
-//				}
-//				else
-//				{
-//					sprintf(m_charArrTmp, "row_mutation_build->SetInt64(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
-//				}
-//			}
-//			else if(key.type == "double")
-//			{
-//				sprintf(m_charArrTmp, "row_mutation_build->SetDouble(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
-//			}
-//			else if(key.type == "bool")
-//			{
-//				sprintf(m_charArrTmp, "row_mutation_build->SetInt64(\"%s\", prot->%s());",key.name.c_str(), key.fget.c_str());
-//			}
-//			else
-//			{
-//				g_logger->error("unkonwn type : %s\n", key.type.c_str());
-//			}
-
-//			WriteWithNewLine(m_charArrTmp);
-//		}
 	}
 
 	--m_nIdent;
@@ -687,7 +632,7 @@ void DataWappereGenerator::ToStringWriter()
 	WriteWithNewLine("writer.StartObject();");
 	WriteWithNewLine();
 
-	// � €鍗� 被鍨嬶紝� €鍗� 被鍨嬩笉鏄痑rray
+	// basic key-value
 	if(!m_msg.m_vecFields.empty())
 	{
 
@@ -778,21 +723,9 @@ void DataWappereGenerator::ToStringWriter()
 			// value
 			if(key.type == "string")
 			{
-				sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
-				if(key.stringCanBeInt)
-				{
-					sprintf(m_charArrTmp, "writer.Int64(stringToInt(m_data->%s()));", key.fget.c_str());
-				}
-				else
-				{
-					sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
-				}
-			}
-			else if(key.type == "int64")
-			{
 				if(key.isEntryTime)
 				{
-					// 淇濇寔涓€鑷
+					// entrytime
 					sprintf(m_charArrTmp, "if(read)\n"
 										  "{\n"
 										  "\twriter.String(%s(getEntryTime()).c_str());\n"
@@ -816,10 +749,22 @@ void DataWappereGenerator::ToStringWriter()
 							key.fget.c_str(),
 							key.fget.c_str());
 				}
-				else
+				else if(key.protoType == "string" && key.isNumberStr)
+				{
+					sprintf(m_charArrTmp, "writer.Int64(stringToInt(m_data->%s()));", key.fget.c_str());
+				}
+				else if(key.protoType == "int64" && key.isNumberStr)
 				{
 					sprintf(m_charArrTmp, "writer.Int64(m_data->%s());", key.fget.c_str());
 				}
+				else
+				{
+					sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
+				}
+			}
+			else if(key.type == "int64")
+			{
+				sprintf(m_charArrTmp, "writer.Int64(m_data->%s());", key.fget.c_str());
 			}
 			else if(key.type == "double")
 			{
@@ -831,7 +776,7 @@ void DataWappereGenerator::ToStringWriter()
 			}
 			else
 			{
-				g_logger->error("unkonwn type : %s\n", key.type.c_str());
+				g_logger->error("unkonwn type : {}\n", key.type.c_str());
 			}
 
 			WriteWithNewLine(m_charArrTmp);
@@ -871,7 +816,7 @@ void DataWappereGenerator::ToStringWriter()
 		WriteWithNewLine(m_charArrTmp);
 	}
 
-	// 澶嶅悎绫诲瀷
+	// compound type
 	if(!m_msg.m_VecSubMsg.empty())
 	{
 		for(const auto &msg : m_msg.m_VecSubMsg)
@@ -1126,7 +1071,7 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 
 	WriteWithNewLine("__attribute__((unused)) auto end = fields.end();");
 
-	// 搴旇涓嶄細鎸囧畾澶嶅埗绫诲瀷
+	// basic string
 	if(!m_msg.m_vecFields.empty())
 	{
 		for(const auto & key : m_msg.m_vecFields)
@@ -1147,25 +1092,14 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 			}
 			WriteWithNewLine(m_charArrTmp);
 
-			if(key.type == "string")
+			if(key.type == "int64")
 			{
-				sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
-				sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
+				sprintf(m_charArrTmp, "writer.Int64(m_data->%s());", key.fget.c_str());
 			}
-			else if(key.type == "int64")
+			else if(key.type == "string")
 			{
-//				string t = "Time";
-//				bool isTime = false;
-//				bool isEntryTime = false;
-//				if(key.name.length() > t.length())
-//				{
-//					isTime = (key.name.compare(key.name.length()-t.length(), t.length(), t) == 0);
-//					isEntryTime = (key.name == "EntryTime");
-//				}
-
 				if(key.isEntryTime)
 				{
-					// 淇濇寔涓€鑷
 					sprintf(m_charArrTmp, "writer.String(%s(getEntryTime()).c_str());\n",
 							"UnixTimeToRawTime");
 				}
@@ -1174,9 +1108,13 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 					sprintf(m_charArrTmp,"writer.String(UnixTimeToRawTime(m_data->%s()).c_str());\n",
 							key.fget.c_str());
 				}
+				else if(key.protoType == "int64" && key.isNumberStr)
+				{
+					sprintf(m_charArrTmp, "writer.String(IntTOString(m_data->%s()).c_str);", key.fget.c_str());
+				}
 				else
 				{
-					sprintf(m_charArrTmp, "writer.Int64(m_data->%s());", key.fget.c_str());
+					sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
 				}
 			}
 			else if(key.type == "double")
@@ -1200,7 +1138,7 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 		}
 	}
 
-	// 澶嶅悎绫诲瀷
+	// compound types
 	if(!m_msg.m_VecSubMsg.empty())
 	{
 		for(const auto &msg : m_msg.m_VecSubMsg)
@@ -1313,15 +1251,6 @@ void DataWappereGenerator::FromString()
 
 	if(m_bIsMsg)
 	{
-//		sprintf(m_charArrTmp,
-//				"auto p = new C%s(this->m_data);\n"
-//				"viidJsonReadHandler handler(p);\n"
-//				"Reader rd;\n"
-//				"StringStream ss(str.c_str());\n",
-//				m_msg.name.c_str());
-
-//		WriteWithNewLine(m_charArrTmp);
-
 		WriteWithNewLine("viidJsonReadHandler handler(this);\n"
 						 "Reader rd;\n"
 						 "StringStream ss(str.c_str());\n");
@@ -1427,99 +1356,7 @@ void DataWappereGenerator::getSet()
 
 	WriteWithNewLine();
 
-	/*
-	// � €鍗� 被鍨
-	if(!m_msg.m_mapFields.empty())
-	{
-		for(const auto kv : m_msg.m_mapFields)
-		{
-			auto field = kv.second;
-			string name = field.name;
-			string type = field.type;
-			if(type == "int64")
-			{
-				type = "int64_t";
-			}
-
-			ToUpperCase(name[0]);
-
-			sprintf(m_charArrTmp, "void Set%s(const %s src)\n"
-								  "{\n"
-								  "\tm_data->%s(src);\n"
-								  "}",
-					name.c_str(),
-					type.c_str(),
-					field.fset.c_str());
-
-			WriteWithNewLine(m_charArrTmp);
-
-			sprintf(m_charArrTmp, "%s Get%s() const\n"
-								  "{\n"
-								  "\t return m_data->%s();\n"
-								  "}",
-					type.c_str(),
-					name.c_str(),
-					field.fget.c_str());
-
-			WriteWithNewLine(m_charArrTmp);
-			WriteWithNewLine();
-		}
-	}
-
-	// 澶嶆潅绫诲瀷锛宻ize锛get锛set
-	if(!m_msg.m_VecSubMsg.empty())
-	{
-		for(const auto msg : m_msg.m_VecSubMsg)
-		{
-			sprintf(m_charArrTmp, "%s *Add%s()\n"
-								  "{\n"
-								  "\treturn  m_data->%s();\n"
-								  "}",
-					msg.name.c_str(),
-					msg.name.c_str(),
-					msg.fadder.c_str());
-
-			WriteWithNewLine(m_charArrTmp);
-
-			if(msg.isArrray)
-			{
-				string getSize(msg.fget);
-				getSize.append("_size");
-
-				sprintf(m_charArrTmp, "int Get%sObjectSize()\n"
-									  "{\n"
-									  "\treturn m_data->%s();\n"
-									  "}",
-						msg.name.c_str(),
-						getSize.c_str());
-				WriteWithNewLine(m_charArrTmp);
-
-				sprintf(m_charArrTmp, "%s Get%s(int index)\n"
-									  "{\n"
-									  "\treturn m_data->%s(index);\n"
-									  "}",
-						msg.name.c_str(),
-						msg.name.c_str(),
-						msg.fget.c_str());
-				WriteWithNewLine(m_charArrTmp);
-			}
-			else
-			{
-				sprintf(m_charArrTmp, "const %s& Get%s()\n"
-									  "{\n"
-									  "\treturn m_data->%s();\n"
-									  "}",
-						msg.name.c_str(),
-						msg.name.c_str(),
-						msg.fget.c_str());
-				WriteWithNewLine(m_charArrTmp);
-			}
-			WriteWithNewLine();
-		}
-	}
-*/
-
-	// EntryTime鐗规畩澶勭悊
+	// overload get/set of entrytime if needed
 	if(m_msg.bHasEntryTime)
 	{
 		// overload EntryTime set/get
@@ -1679,6 +1516,7 @@ void DataWappereGenerator::set(string fun, string type)
 	WriteWithNewLine(fun);
 	++m_nIdent;
 
+	// check existence if type
 	bool hasType = false;
 	for(const auto &key : m_msg.m_vecFields)
 	{
@@ -1687,8 +1525,20 @@ void DataWappereGenerator::set(string fun, string type)
 			hasType = true;
 			break;
 		}
+
+		// compatible
+		if(type == "int64")
+		{
+			if(key.type == "double" ||
+			  (key.isNumberStr && key.protoType == "int64"))
+			{
+				hasType = true;
+				break;
+			}
+		}
 	}
 
+	// case
 	if(hasType)
 	{
 		WriteWithNewLine("switch (hKey) \n{");
@@ -1697,30 +1547,24 @@ void DataWappereGenerator::set(string fun, string type)
 		{
 			if(field.type == type)
 			{
-				// time is int but will given as string
-				if(field.isTime)
-				{
-					continue;
-				}
-
-				CaseValue(field);
+				CaseValue(field, type);
 			}
 
-			// double绫诲瀷鐨勬暟鎹紝鏈夋椂鍙兘浼氫互int褰� 紡缁欏嚭锛屽洜姝ゅ湪int閲屼篃鍐欎竴� 
+			// construct function: SetInt(hash_t Hkey, int64_t value)
+			// double and number string can be given as an int
 			if(type == "int64")
 			{
+				// should contains double
 				if(field.type == "double")
 				{
-					CaseValue(field);
+					CaseValue(field, type);
 				}
-			}
 
-			// 鏈変簺瀛楁鏄� nt锛屼絾鏄湁鍙兘浼氫互string鐨勫舰寮忕粰鍑
-			if(type == "string")
-			{
-				if((field.type == "int64") && (field.intCanBeStr || field.isTime))
+				// should contains nummeric string
+				// TODO may need change .for now ,just compatble to int64 in protobuf
+				if(field.isNumberStr && field.protoType == "int64")
 				{
-					CaseValue(field, true);
+					CaseValue(field, type);
 				}
 			}
 		}
@@ -1740,8 +1584,8 @@ void DataWappereGenerator::set(string fun, string type)
 	WriteWithNewLine("}");
 }
 
-void DataWappereGenerator::CaseValue(const JsonKey &field, bool intBeStrinig)
-{
+void DataWappereGenerator::CaseValue(const JsonKey &field, string type)
+{	
 	if(field.name == "Orientation" && m_msg.name == "GPSData_Proto")
 	{
 		sprintf(m_charArrTmp, "case \"%s\"_hash: // %lu","Direction", get_str_hash("Direction"));
@@ -1756,37 +1600,25 @@ void DataWappereGenerator::CaseValue(const JsonKey &field, bool intBeStrinig)
 	WriteWithNewLine("{");
 	++m_nIdent;
 
-	if(intBeStrinig)	// 鐩� 鍙湁int鍨嬬殑锛屼細鏈夎繖绉嶆儏鍐
+	if(field.isEntryTime)
 	{
-		// time is int
-		if(field.isEntryTime)
-		{
-			// EntryTime should set by viid
-			// TODO break;
-			// sprintf(m_charArrTmp, "m_data->%s(RawTimeToPretty(time(nullptr)));", field.fset.c_str());
-//			WriteWithNewLine("if(unlikely(!CheckDateAfterSchema(value)))\n"
-//							 "{\n"
-//							 "\treturn false;\n"
-//							 "}");
-			sprintf(m_charArrTmp, "%s", "// viid generate");
-		}
-		else if(field.isTime)
-		{
-//			WriteWithNewLine("if(unlikely(!CheckDateAfterSchema(value)))\n"
-//							 "{\n"
-//							 "\treturn false;\n"
-//							 "}");
-			sprintf(m_charArrTmp, "m_data->%s(RawTimeToUnixTime(value));", field.fset.c_str());
-		}
-		else
-		{
-			// "3" -> 3
-//			WriteWithNewLine("if(unlikely(!AllisDigit(value)))\n"
-//							 "{\n"
-//							 "\treturn false;\n"
-//							 "}");
-			sprintf(m_charArrTmp, "m_data->%s(stringToInt(value));",field.fset.c_str());
-		}
+		// EntryTime should set by viid
+		sprintf(m_charArrTmp, "%s", "// viid generate");
+	}
+	else if(field.isTime)
+	{
+		sprintf(m_charArrTmp, "m_data->%s(RawTimeToUnixTime(value));", field.fset.c_str());
+	}
+	else if(field.isNumberStr && field.protoType == "int64" && type == "string")
+	{
+		// "3" -> 3
+		sprintf(m_charArrTmp, "m_data->%s(stringToInt(value));",field.fset.c_str());
+	}
+	else if(field.isNumberStr && field.protoType == "int64" && type == "int64")	// for compatible
+	{
+		// 3 -> 3, where key(3) should be string ,but we will accept too if it is an int
+		// that's numer string can be given as string("3") or int(3)
+		sprintf(m_charArrTmp, "m_data->%s(value);",field.fset.c_str());
 	}
 	else
 	{
@@ -1918,4 +1750,3 @@ const JsonKey * DataWappereGenerator::GetJsonKeyWithName(string name)
 
 	return pKey;
 }
-

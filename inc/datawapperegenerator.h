@@ -51,7 +51,7 @@ private:
 	void ObjectBegin();
 	void set(string fun, string type);
 
-	void CaseValue(const JsonKey &field, bool intBeStrinig = false);
+	void CaseValue(const JsonKey &field, string type);
 
 	void Variable();
 

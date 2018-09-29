@@ -27,7 +27,7 @@ using namespace rapidjson;
 
 struct JsonKey
 {
-	JsonKey():len(0), required(false),intCanBeStr(false),isTime(false),isGeoPoint(false)
+	JsonKey():len(0), required(false),/*intCanBeStr(false),*/isTime(false),isGeoPoint(false),isNumberStr(false)
 	{}
 
 	string name;
@@ -36,11 +36,11 @@ struct JsonKey
 	string fget;
 	size_t len;
 	bool required;
-	bool intCanBeStr;			// string/int from json, int in protobuf, int in elasticsearch
-	bool stringCanBeInt;		// string/int from json, string in protobuf, int in elasticsearch
 	bool isTime;				// time
 	bool isEntryTime;			// is EntryTime
 	bool isGeoPoint;			// longitude or latitude
+	string protoType;			// type in protobuf,can be string/int64 when type type==string && isNumber
+	bool isNumberStr;			// string contans all digit
 };
 
 // key-value in protobuf

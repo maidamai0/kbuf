@@ -18,7 +18,7 @@ __attribute__((unused)) static const char* kTypeNames[] =
 // path for protobuf
 static const string protoPath = "../protobuf/proto/";
 static const string srcPath = "../protobuf/src/";
-static const string incPath = "../protobuf/inc/";
+static const string incPath = "../protobuf/include/";
 
 protoGenerator::protoGenerator(string src)
 {
@@ -113,7 +113,7 @@ bool protoGenerator::scan()
 	string src = m_strFileNameNoExt;
 	src.append(".json");
 
-    g_logger->trace("scan {}", src.c_str());
+	g_logger->trace("scan {}", src.c_str());
 
 	FILE *fp = fopen(src.c_str(), "rb");
 
@@ -165,33 +165,28 @@ bool protoGenerator::scan()
 	{
 		string name = object.name.GetString();
 		string type;
-		bool intCanBeString = false;
+		string protType;
+		bool isNumberStr = false;
 		bool isTime = false;
-		bool stringCanbeInt = false;
 		bool isEntryTime = false;
 
 		if(object.value.HasMember("oneOf"))
 		{
+			// type must be int64
+			type = "string";
+			isNumberStr = true;
+
 			// 这种字段，标准里的定义都是string，但是考虑到性能，在es里存的是int
 			// 最开始的想法是，这种字段在protobuf中的字段全使用int64，但是在制作schema的时候
 			// 只做了部分字段，生成proto文件交给其他部门使用了。为了不给其他部门造成额外的工作量
 			// 以后这种字段在protobuf中的类型，以第一个为准，而不是全部使用int64
 			// 不出意外，以后这种情况应该都是string
 			const Value & multiType = object.value["oneOf"];
+
 			// 在protobuf中使用第一个类型
 			const Value &firstType = multiType[0];
 			assert(firstType.HasMember("type"));
-			type = m_mapType[firstType["type"].GetString()];
-
-			if(type == "int64")
-			{
-				intCanBeString = true;
-			}
-			else
-			{
-				// string
-				stringCanbeInt = true;
-			}
+			protType = m_mapType[firstType["type"].GetString()];
 		}
 		else if(object.value.HasMember("$ref"))
 		{
@@ -297,9 +292,9 @@ bool protoGenerator::scan()
 							name =="TimeLowLimit" ||
 							name == "KDExpiredDate" ||
 							name == "ShotTimeEx")
-					{
+					{						
 						isTime = true;
-						type = "int64";
+						protType = "int64";
 					}
 
 					if(name == "EntryTime")
@@ -328,8 +323,15 @@ bool protoGenerator::scan()
 		key.name = name;
 
 		key.type = type;
-		key.intCanBeStr = intCanBeString;
-		key.stringCanBeInt = stringCanbeInt;
+		if(protType.empty())
+		{
+			key.protoType = type;
+		}
+		else
+		{
+			key.protoType = protType;
+		}
+		key.isNumberStr = isNumberStr;
 		key.isTime = isTime;
 		key.isEntryTime = isEntryTime;
 
@@ -380,7 +382,7 @@ bool protoGenerator::scan()
 
 		m_msg.m_vecFields.push_back(key);
 
-		ProtoKey proKey(type, name);
+		ProtoKey proKey(key.protoType, name);
 
 		// these two name has been wrong
 		// but we wont't want to change protobuf
