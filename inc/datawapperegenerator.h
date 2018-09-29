@@ -10,6 +10,8 @@ class DataWappereGenerator
 public:
 	DataWappereGenerator(const ProtoMessage &msg, string sqlfilename = "");
 	void GenerateDataWapper();
+	void GenerateCpp();
+	void GenerateHeader();
 
 private:
 

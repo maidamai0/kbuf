@@ -196,6 +196,302 @@ void DataWappereGenerator::GenerateDataWapper()
 	return;
 }
 
+void DataWappereGenerator::GenerateHeader()
+{
+	if(m_msg.name.empty())
+	{
+		g_logger->info("kb: Nothing to be done");
+		return;
+	}
+
+	if(m_msg.isNew)
+	{
+		g_logger->info("kb: already compiled");
+		return;
+	}
+
+	for(const auto & msg : m_msg.m_VecSubMsg)
+	{
+		DataWappereGenerator dw(msg);
+		dw.GenerateDataWapper();
+	}
+
+	struct stat dirInfo;
+	if(stat("./include", &dirInfo))
+	{
+		// dir not exist
+		system("mkdir -p ./include");
+	}
+
+	string fileName("./include/");
+	fileName.append(m_msg.fileName);
+	fileName.append(".h");
+
+	m_dstFile.open(fileName.c_str());
+
+	if(!m_dstFile.is_open())
+	{
+		g_logger->error("open {} failed\n", fileName.c_str());
+		return;
+	}
+
+	HeadGuard();
+	WriteWithNewLine();
+
+	License();
+	WriteWithNewLine();
+
+	Headers();
+	WriteWithNewLine();
+
+	ClassStart();
+
+	pub();
+
+	TypeDef();
+	WriteWithNewLine();
+
+	string name(m_msg.name);
+	ToUpperCase(name[0]);
+
+	// constructor witout parameter
+	sprintf(m_charArrTmp, "C%s();", name.c_str());
+	Write(m_charArrTmp);
+	WriteWithNewLine();
+
+	// constructor with parameter of 'm_data'
+	sprintf(m_charArrTmp, "C%s(%s *data);",name.c_str(), m_msg.name.c_str());
+	WriteWithNewLine(m_charArrTmp);
+
+	// create
+	sprintf(m_charArrTmp, "static sharedPtr Create%s();",name.c_str());
+	WriteWithNewLine(m_charArrTmp);
+	WriteWithNewLine();
+
+	// create with data
+	sprintf(m_charArrTmp, "static sharedPtr Create%sWithData(%s *data);",
+			name.c_str(), m_msg.name.c_str());
+	WriteWithNewLine(m_charArrTmp);
+
+	// destruct
+	sprintf(m_charArrTmp, "~C%s();", name.c_str());
+	WriteWithNewLine(m_charArrTmp);
+	WriteWithNewLine();
+
+	// release
+	WriteWithNewLine("void Release();");
+	WriteWithNewLine();
+
+	// Tocdb
+	// experimental
+	sprintf(m_charArrTmp, "static void ProtoToCdb(cdb::RowMutation::Builder *row_mutation_build, const %s *prot);",
+			m_msg.name.c_str());
+
+	// toString
+	WriteWithNewLine("string &ToString(string &str, bool read = false);");
+	WriteWithNewLine();
+
+	// toStringWriter
+	WriteWithNewLine("string& ToStringByProto(string &str) const;");
+	WriteWithNewLine();
+
+	WriteWithNewLine("string &ToStringWithSpecifiedField(string &str, const set<string> fields);");
+	WriteWithNewLine();
+
+	WriteWithNewLine("bool FromString(const string &str, bool validate = true);");
+	WriteWithNewLine();
+
+	WriteWithNewLine("bool FromStringProto(const string &str);");
+	WriteWithNewLine();
+
+	WriteWithNewLine("bool Serialize(CSerialBuf &buf) const;");
+	WriteWithNewLine();
+
+	WriteWithNewLine("bool DeSerialize(const void * data, int size);");
+	WriteWithNewLine();
+
+	WriteWithNewLine("bool ObjectBegin(hash_t hKey, CViidBaseData *&newPtr);");
+	WriteWithNewLine();
+
+	set("bool SetString(hash_t hKey, const char* value, size_t length)", "string");
+	WriteWithNewLine();
+
+	set("bool SetNull(hash_t hKey)", "null");
+	WriteWithNewLine();
+
+	set("bool SetBool(hash_t hKey, bool value)", "bool");
+	WriteWithNewLine();
+
+	set("bool SetInt(hash_t hKey, int64_t value)", "int64");
+	WriteWithNewLine();
+
+	set("bool SetDouble(hash_t hKey, double value)", "double");
+	WriteWithNewLine();
+
+	sprintf(m_charArrTmp, "%s *GetData();",m_msg.name.c_str());
+	WriteWithNewLine(m_charArrTmp);
+	WriteWithNewLine();
+
+	pri();
+	Variable();
+
+	ClassEnd();
+	WriteWithNewLine();
+
+	HeadGuard();
+
+	g_logger->info("{} generated", fileName.c_str());
+
+	m_dstFile.close();
+
+	return;
+}
+
+void DataWappereGenerator::GenerateCpp()
+{
+	if(m_msg.name.empty())
+	{
+		g_logger->info("kb: Nothing to be done");
+		return;
+	}
+
+	if(m_msg.isNew)
+	{
+		g_logger->info("kb: already compiled");
+		return;
+	}
+
+	for(const auto & msg : m_msg.m_VecSubMsg)
+	{
+		DataWappereGenerator dw(msg);
+		dw.GenerateCpp();
+	}
+
+	struct stat dirInfo;
+	if(stat("./src", &dirInfo))
+	{
+		// dir not exist
+		system("mkdir -p ./src");
+	}
+
+	string fileName("./src/");
+	fileName.append(m_msg.fileName);
+	fileName.append(".cpp");
+
+	m_dstFile.open(fileName.c_str());
+
+	if(!m_dstFile.is_open())
+	{
+		g_logger->error("open {} failed\n", fileName.c_str());
+		return;
+	}
+
+	// message has schema
+	if(m_msg.fileName.find("msg") != string::npos ||
+			m_msg.fileName == "videosliceinfo" ||
+			m_msg.fileName == "imageinfo" ||
+			m_msg.fileName == "imagelist" ||
+			m_msg.fileName == "videoslicelist" ||
+			m_msg.fileName == "subscribecancel" ||
+			m_msg.fileName == "dispositioncancel")
+	{
+		m_bIsMsg = true;
+	}
+
+	if(m_msg.fileName.find("msg") == string::npos &&
+			m_msg.fileName.find("list") == string::npos)
+	{
+		m_bIsObject = true;
+	}
+
+	sprintf(m_charArrTmp, "#include \"%s.h\"", m_msg.fileName.c_str());
+	WriteWithNewLine(m_charArrTmp);
+	WriteWithNewLine();
+
+	FileStaticVar();
+	WriteWithNewLine();
+
+	construct();
+	WriteWithNewLine();
+
+	create();
+	WriteWithNewLine();
+
+	createWithData();
+	WriteWithNewLine();
+
+	destruct();
+	WriteWithNewLine();
+
+	Release();
+	WriteWithNewLine();
+
+	// experimental
+	if(!m_sqlFileName.empty())
+	{
+		g_logger->info("sql:{}", m_sqlFileName);
+		ToCdb();
+		WriteWithNewLine();
+	}
+
+	ToString();
+	WriteWithNewLine();
+
+	ToStringWriter();
+	WriteWithNewLine();
+
+	ToStringByProto();
+	WriteWithNewLine();
+
+	ToStringWithSpecifiedField();
+	WriteWithNewLine();
+
+	FromString();
+	WriteWithNewLine();
+
+	FromStringProto();
+	WriteWithNewLine();
+
+	Serialize();
+	WriteWithNewLine();
+
+	DeSerial();
+	WriteWithNewLine();
+
+	ObjectBegin();
+	WriteWithNewLine();
+
+	set("bool SetString(hash_t hKey, const char* value, size_t length)", "string");
+	WriteWithNewLine();
+
+	set("bool SetNull(hash_t hKey)", "null");
+	WriteWithNewLine();
+
+	set("bool SetBool(hash_t hKey, bool value)", "bool");
+	WriteWithNewLine();
+
+	set("bool SetInt(hash_t hKey, int64_t value)", "int64");
+	WriteWithNewLine();
+
+	set("bool SetDouble(hash_t hKey, double value)", "double");
+	WriteWithNewLine();
+
+	getSet();
+	WriteWithNewLine();
+
+	if(m_bIsMsg)
+	{
+		pri();
+		InitSchema();
+	}
+
+	g_logger->info("{} generated", fileName.c_str());
+
+	m_dstFile.close();
+
+	return;
+}
+
 void DataWappereGenerator::HeadGuard()
 {
 	string dst(m_msg.fileName);
