@@ -687,7 +687,7 @@ void DataWappereGenerator::ToStringWriter()
 	WriteWithNewLine("writer.StartObject();");
 	WriteWithNewLine();
 
-	// 绠€鍗曠被鍨嬶紝绠€鍗曠被鍨嬩笉鏄痑rray
+	// � €鍗� 被鍨嬶紝� €鍗� 被鍨嬩笉鏄痑rray
 	if(!m_msg.m_vecFields.empty())
 	{
 
@@ -707,6 +707,22 @@ void DataWappereGenerator::ToStringWriter()
 				}
 			}
 
+
+			if(key.name == "LocalPath")
+			{
+				continue;
+			}
+
+			if(key.name == "MountPath")
+			{
+				WriteWithNewLine("if(!read)\n"
+								 "{\n"
+								 "\twriter.String(\"MountPath\");\n"
+								 "\twriter.String(m_data->mountpath().c_str());\n"
+								 "}");
+				continue;
+			}
+
 			// GeoPoint
 			if(key.isGeoPoint)
 			{
@@ -719,6 +735,11 @@ void DataWappereGenerator::ToStringWriter()
 				{
 					continue;
 				}
+			}
+
+			if(key.name == "TabID")
+			{
+				continue;
 			}
 
 			// data in image will be move to subimage
@@ -1407,7 +1428,7 @@ void DataWappereGenerator::getSet()
 	WriteWithNewLine();
 
 	/*
-	// 绠€鍗曠被鍨
+	// � €鍗� 被鍨
 	if(!m_msg.m_mapFields.empty())
 	{
 		for(const auto kv : m_msg.m_mapFields)
@@ -1685,7 +1706,7 @@ void DataWappereGenerator::set(string fun, string type)
 				CaseValue(field);
 			}
 
-			// double绫诲瀷鐨勬暟鎹紝鏈夋椂鍙兘浼氫互int褰㈠紡缁欏嚭锛屽洜姝ゅ湪int閲屼篃鍐欎竴浠
+			// double绫诲瀷鐨勬暟鎹紝鏈夋椂鍙兘浼氫互int褰� 紡缁欏嚭锛屽洜姝ゅ湪int閲屼篃鍐欎竴� 
 			if(type == "int64")
 			{
 				if(field.type == "double")
@@ -1694,7 +1715,7 @@ void DataWappereGenerator::set(string fun, string type)
 				}
 			}
 
-			// 鏈変簺瀛楁鏄痠nt锛屼絾鏄湁鍙兘浼氫互string鐨勫舰寮忕粰鍑
+			// 鏈変簺瀛楁鏄� nt锛屼絾鏄湁鍙兘浼氫互string鐨勫舰寮忕粰鍑
 			if(type == "string")
 			{
 				if((field.type == "int64") && (field.intCanBeStr || field.isTime))
@@ -1735,7 +1756,7 @@ void DataWappereGenerator::CaseValue(const JsonKey &field, bool intBeStrinig)
 	WriteWithNewLine("{");
 	++m_nIdent;
 
-	if(intBeStrinig)	// 鐩墠鍙湁int鍨嬬殑锛屼細鏈夎繖绉嶆儏鍐
+	if(intBeStrinig)	// 鐩� 鍙湁int鍨嬬殑锛屼細鏈夎繖绉嶆儏鍐
 	{
 		// time is int
 		if(field.isEntryTime)
@@ -1743,27 +1764,27 @@ void DataWappereGenerator::CaseValue(const JsonKey &field, bool intBeStrinig)
 			// EntryTime should set by viid
 			// TODO break;
 			// sprintf(m_charArrTmp, "m_data->%s(RawTimeToPretty(time(nullptr)));", field.fset.c_str());
-			WriteWithNewLine("if(unlikely(!CheckDateAfterSchema(value)))\n"
-							 "{\n"
-							 "\treturn false;\n"
-							 "}");
+//			WriteWithNewLine("if(unlikely(!CheckDateAfterSchema(value)))\n"
+//							 "{\n"
+//							 "\treturn false;\n"
+//							 "}");
 			sprintf(m_charArrTmp, "%s", "// viid generate");
 		}
 		else if(field.isTime)
 		{
-			WriteWithNewLine("if(unlikely(!CheckDateAfterSchema(value)))\n"
-							 "{\n"
-							 "\treturn false;\n"
-							 "}");
+//			WriteWithNewLine("if(unlikely(!CheckDateAfterSchema(value)))\n"
+//							 "{\n"
+//							 "\treturn false;\n"
+//							 "}");
 			sprintf(m_charArrTmp, "m_data->%s(RawTimeToUnixTime(value));", field.fset.c_str());
 		}
 		else
 		{
 			// "3" -> 3
-			WriteWithNewLine("if(unlikely(!AllisDigit(value)))\n"
-							 "{\n"
-							 "\treturn false;\n"
-							 "}");
+//			WriteWithNewLine("if(unlikely(!AllisDigit(value)))\n"
+//							 "{\n"
+//							 "\treturn false;\n"
+//							 "}");
 			sprintf(m_charArrTmp, "m_data->%s(stringToInt(value));",field.fset.c_str());
 		}
 	}

@@ -292,7 +292,8 @@ bool protoGenerator::scan()
 					if(name.compare(name.length()-t.length(), t.length(), t) == 0 ||
 							name == "TimeUpLimit" ||
 							name =="TimeLowLimit" ||
-							name == "KDExpiredDate")
+							name == "KDExpiredDate" ||
+							name == "ShotTimeEx")
 					{
 						isTime = true;
 						type = "int64";
