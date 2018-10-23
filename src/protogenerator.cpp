@@ -169,6 +169,8 @@ bool protoGenerator::scan()
 		bool isNumberStr = false;
 		bool isTime = false;
 		bool isEntryTime = false;
+		bool isCreateTime = false;
+		bool isExpiredTime = false;
 
 		if(object.value.HasMember("oneOf"))
 		{
@@ -290,10 +292,16 @@ bool protoGenerator::scan()
 					if(name.compare(name.length()-t.length(), t.length(), t) == 0 ||
 							name == "TimeUpLimit" ||
 							name =="TimeLowLimit" ||
-							name == "KDExpiredDate" ||
 							name == "ShotTimeEx")
 					{						
 						isTime = true;
+						protType = "int64";
+					}
+
+					if(name == "KDExpiredDate")
+					{
+						isExpiredTime = true;
+						m_msg.bHasExpireDate = true;
 						protType = "int64";
 					}
 
@@ -301,6 +309,11 @@ bool protoGenerator::scan()
 					{
 						isEntryTime = true;
 						m_msg.bHasEntryTime = true;
+					}
+
+					if(name == "CreatTime" && m_msg.name == "Disposition_Proto")
+					{
+						isCreateTime = true;
 					}
 				}
 			}
@@ -334,20 +347,22 @@ bool protoGenerator::scan()
 		key.isNumberStr = isNumberStr;
 		key.isTime = isTime;
 		key.isEntryTime = isEntryTime;
+		key.isCreatTime = isCreateTime;
+		key.isExpiredTime = isExpiredTime;
 
 		unsigned len = 0;
-		if(key.type == "string")
+		if(key.type == "string" && !key.isTime)
 		{
 			char msg[1024] = {};
 			sprintf(msg, "field:%s", key.name.c_str());
 
-			if(!(object.value.HasMember("maxlength")))
+			if(!(object.value.HasMember("maxLength")))
 			{
 				g_logger->info("{}:{} missed maxLength", src, key.name);
 			}
 			else
 			{
-				len = object.value["maxlength"].GetUint();
+				len = object.value["maxLength"].GetUint();
 			}
 		}
 
@@ -642,7 +657,9 @@ bool protoGenerator::WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringB
 	}
 	else if(object.value.IsString())
 	{
-		if(object.name != "description")
+		if(object.name != "description" &&
+			object.name != "annotation" &&
+			object.name != "ptype")
 		{
 			w.String(object.name.GetString());
 			w.String(object.value.GetString());

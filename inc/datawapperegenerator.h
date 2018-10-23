@@ -63,6 +63,7 @@ private:
 
 	string TextToCpp(string src);
 	const JsonKey *GetJsonKeyWithName(string name);
+	bool stringStartWith(string src, string st);
 
 private:
 

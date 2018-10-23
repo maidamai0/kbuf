@@ -891,6 +891,7 @@ void DataWappereGenerator::ToCdb()
 			{
 				g_logger->error("unkonwn type,cdb: {} in {} at {}, proto: {} in {}\n",
 								cdbkey.type, cdbkey.name, m_sqlFileName, pJsonKey->protoType, pJsonKey->name);
+				continue;
 			}
 
 			WriteWithNewLine(m_charArrTmp);
@@ -934,6 +935,16 @@ void DataWappereGenerator::ToStringWriter()
 
 		for(const auto & key : m_msg.m_vecFields)
 		{
+			// this two field not need any more,but we do not want to change proto
+			if(m_msg.name == "WifiUsersData_Proto")
+			{
+				if(key.name == "CollectorName" ||
+						key.name == "CollectorIDType")
+				{
+					continue;
+				}
+			}
+
 			// subimageinfo special handle
 			if(m_msg.name == "SubImageInfo_Proto")
 			{
@@ -978,17 +989,12 @@ void DataWappereGenerator::ToStringWriter()
 				}
 			}
 
-			if(key.name == "TabID")
-			{
-				continue;
-			}
-
 			// data in image will be move to subimage
 			if(m_msg.name == "SubImageInfo_Proto")
 			{
 				if(key.name == "Data")
 				{
-					WriteWithNewLine("if(read)\n"
+					WriteWithNewLine("if(read && m_data->data().length())\n"
 									 "{\n"
 									 "\twriter.String(\"Data\");\n"
 									 "\twriter.String(m_data->data().c_str());\n"
@@ -996,6 +1002,129 @@ void DataWappereGenerator::ToStringWriter()
 					continue;
 
 				}
+			}
+
+			// uploading in videoSliceInfo
+			if(m_msg.name == "VideoSliceInfo_Proto")
+			{
+				if(key.name == "Uploading")
+				{
+					WriteWithNewLine("if(!read)\n"
+									 "{\n"
+									 "\twriter.String(\"Uploading\");\n"
+									 "\twriter.Int64(m_data->uploading());\n"
+									 "}");
+					continue;
+
+				}
+			}
+
+			// kd extend field in motovehicle
+			if(m_msg.name == "MotorVehicle_Proto")
+			{
+				if(key.name == "KDDispositionType" ||
+						key.name == "KDCollectorName" ||
+						key.name == "KDNote")
+				{
+					WriteWithNewLine("if(!read)");
+					WriteWithNewLine("{");
+					++m_nIdent;
+
+					// key
+					sprintf(m_charArrTmp, "writer.String(\"%s\");", key.name.c_str());
+					WriteWithNewLine(m_charArrTmp);
+
+					// value
+					if(key.name == "KDCollectTime")
+					{
+						sprintf(m_charArrTmp, "writer.String(UnixTimeToPrettyTime(m_data->%s()).c_str());",key.fget.c_str());
+					}
+					else
+					{
+						sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());",key.fget.c_str());
+					}
+					WriteWithNewLine(m_charArrTmp);
+
+					--m_nIdent;
+					WriteWithNewLine("}");
+					continue;
+				}
+			}
+
+			// imageinfo in notification
+			if(m_msg.name == "ImageInfo_Proto" && key.name != "ImageID" &&
+				key.name != "CollectorName" && key.name != "CollectorOrg" &&
+				key.name != "CollectorIDType" && key.name != "CollectorID" &&
+				key.name != "EntryClerk" && key.name != "EntryClerkOrg" &&
+				key.name != "EntryClerkIDType" && key.name != "EntryClerkID")
+			{
+				WriteWithNewLine("if(!read)");
+				WriteWithNewLine("{\n");
+				++m_nIdent;
+
+				// key
+				sprintf(m_charArrTmp, "writer.String(\"%s\");", key.name.c_str());
+				WriteWithNewLine(m_charArrTmp);
+
+				// value
+				if(key.type == "string")
+				{
+					if(key.isEntryTime)
+					{
+						// entrytime
+						sprintf(m_charArrTmp, "writer.String(%s(getEntryTime()).c_str());\n",
+								"UnixTimeToPrettyTime");
+					}
+					else if(key.isExpiredTime)
+					{
+						// Expiredtime
+						sprintf(m_charArrTmp, "writer.String(%s(getExpiredTime()).c_str());\n",
+								"UnixTimeToPrettyTime");
+					}
+					else if(key.isTime)
+					{
+						sprintf(m_charArrTmp,"writer.String(UnixTimeToPrettyTime(m_data->%s()).c_str());\n",
+								key.fget.c_str());
+					}
+					else if(key.protoType == "string" && key.isNumberStr)
+					{
+						sprintf(m_charArrTmp, "writer.Int64(stringToInt(m_data->%s()));\n",
+								key.fget.c_str());
+					}
+					else if(key.protoType == "int64" && key.isNumberStr)
+					{
+						sprintf(m_charArrTmp, "writer.Int64(m_data->%s());\n",
+								key.fget.c_str());
+					}
+					else
+					{
+						sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
+					}
+				}
+				else if(key.type == "int64")
+				{
+					sprintf(m_charArrTmp, "writer.Int64(m_data->%s());", key.fget.c_str());
+				}
+				else if(key.type == "double")
+				{
+					sprintf(m_charArrTmp, "writer.Double(m_data->%s());", key.fget.c_str());
+				}
+				else if(key.type == "bool")
+				{
+					sprintf(m_charArrTmp, "writer.Bool(m_data->%s());", key.fget.c_str());
+				}
+				else
+				{
+					g_logger->error("unkonwn type : {}\n", key.type.c_str());
+				}
+
+				WriteWithNewLine(m_charArrTmp);
+				WriteWithNewLine();
+
+				--m_nIdent;
+				WriteWithNewLine("}\n");
+
+				continue;
 			}
 
 			// key
@@ -1032,6 +1161,19 @@ void DataWappereGenerator::ToStringWriter()
 										  "}",
 							"UnixTimeToRawTime");
 				}
+				else if(key.isExpiredTime)
+				{
+					// Expiredtime
+					sprintf(m_charArrTmp, "if(read)\n"
+										  "{\n"
+										  "\twriter.String(%s(getExpiredTime()).c_str());\n"
+										  "}\n"
+										  "else\n"
+										  "{\n"
+										  "\twriter.String(UnixTimeToPrettyTime(getExpiredTime()).c_str());\n"
+										  "}",
+							"UnixTimeToRawTime");
+				}
 				else if(key.isTime)
 				{
 					sprintf(m_charArrTmp,"if(read)\n"
@@ -1047,11 +1189,29 @@ void DataWappereGenerator::ToStringWriter()
 				}
 				else if(key.protoType == "string" && key.isNumberStr)
 				{
-					sprintf(m_charArrTmp, "writer.Int64(stringToInt(m_data->%s()));", key.fget.c_str());
+					sprintf(m_charArrTmp, "if(read)\n"
+										  "{\n"
+										  "\twriter.String(m_data->%s().c_str());\n"
+										  "}\n"
+										  "else\n"
+										  "{\n"
+										  "\twriter.Int64(stringToInt(m_data->%s()));\n"
+										  "}",
+							key.fget.c_str(),
+							key.fget.c_str());
 				}
 				else if(key.protoType == "int64" && key.isNumberStr)
 				{
-					sprintf(m_charArrTmp, "writer.Int64(m_data->%s());", key.fget.c_str());
+					sprintf(m_charArrTmp, "if(read)\n"
+										  "{\n"
+										  "\twriter.String(IntTOString(m_data->%s()).c_str());\n"
+										  "}\n"
+										  "else\n"
+										  "{\n"
+										  "\twriter.Int64(m_data->%s());\n"
+										  "}",
+							key.fget.c_str(),
+							key.fget.c_str());
 				}
 				else
 				{
@@ -1260,7 +1420,6 @@ void DataWappereGenerator::ToStringWriter()
 						"\t{\n"
 						"\t\tauto sp = C%s::Create%sWithData(&RawP);\n"
 						"\t\tsp->setEntryTime(getEntryTime());\n"
-						"\t\tsp->setExpiredTime(getExpiredTime());\n"
 						"\t\tsp->ToStringWriter(writer, read);\n"
 						"\t}\n"
 						"\twriter.EndArray();\n"
@@ -1278,7 +1437,6 @@ void DataWappereGenerator::ToStringWriter()
 						"\tauto p = m_data->%s();\n"
 						"\tauto sp = C%s::Create%sWithData(&p);\n"
 						"\tsp->setEntryTime(getEntryTime());\n"
-						"\tsp->setExpiredTime(getExpiredTime());\n"
 						"\twriter.String(\"%s\");\n"
 						"\tsp->ToStringWriter(writer, read);\n}\n",
 						msg.fget.c_str(),
@@ -1399,6 +1557,12 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 					sprintf(m_charArrTmp, "writer.String(%s(getEntryTime()).c_str());\n",
 							"UnixTimeToRawTime");
 				}
+				else if(key.isExpiredTime)
+				{
+					// Expiredtime
+					sprintf(m_charArrTmp, "writer.String(%s(getExpiredTime()).c_str());\n",
+							"UnixTimeToRawTime");
+				}
 				else if(key.isTime)
 				{
 					sprintf(m_charArrTmp,"writer.String(UnixTimeToRawTime(m_data->%s()).c_str());\n",
@@ -1406,7 +1570,7 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 				}
 				else if(key.protoType == "int64" && key.isNumberStr)
 				{
-					sprintf(m_charArrTmp, "writer.String(IntTOString(m_data->%s()).c_str);", key.fget.c_str());
+					sprintf(m_charArrTmp, "writer.String(IntTOString(m_data->%s()).c_str());", key.fget.c_str());
 				}
 				else
 				{
@@ -1659,6 +1823,17 @@ void DataWappereGenerator::getSet()
 		WriteWithNewLine("void setEntryTime(const time_t src) {m_data->set_entrytime(src);}\n"
 						 "time_t getEntryTime() const {return m_data->entrytime();}");
 	}
+
+	// overload get/set of entrytime if needed
+	if(m_msg.bHasExpireDate)
+	{
+		WriteWithNewLine();
+
+		// overload EntryTime set/get
+		WriteWithNewLine("void setExpiredTime(const time_t src) {m_data->set_kdexpireddate(src);}\n"
+						 "time_t getExpiredTime() const {return m_data->kdexpireddate();}\n"
+						 "void UpdateExpiredTime(time_t s){m_data->set_kdexpireddate(getEntryTime() + s);}");
+	}
 }
 
 void DataWappereGenerator::ObjectBegin()
@@ -1767,6 +1942,21 @@ void DataWappereGenerator::ObjectBegin()
 							msg.fadder.c_str(),
 							msg.name.c_str());
 				}
+				else if(m_msg.name == "DispositionListObject" && msg.fieldName == "DispositionObject")
+				{
+					sprintf(m_charArrTmp,
+							"case \"%s\"_hash:// %lu\n"
+							"\t{\n"
+							"\t\tauto p = m_data->%s();\n"
+							"\t\tnewPtr = new C%s(p);\n"
+							"\t\tp->set_creattime(time(nullptr));\n"
+							"\t\tbreak;\n"
+							"\t}",
+							msg.fieldName.c_str(),
+							get_str_hash(msg.fieldName.c_str()),
+							msg.fadder.c_str(),
+							msg.name.c_str());
+				}
 				else
 				{
 					sprintf(m_charArrTmp,
@@ -1841,6 +2031,16 @@ void DataWappereGenerator::set(string fun, string type)
 
 		for(const auto &field : m_msg.m_vecFields)
 		{
+			// not needed anymore,but we do not want to change proto
+			if(m_msg.name == "WifiUsersData_Proto")
+			{
+				if(field.name == "CollectorName" ||
+					field.name == "CollectorIDType")
+				{
+					continue;
+				}
+			}
+
 			if(field.type == type)
 			{
 				CaseValue(field, type);
@@ -1857,8 +2057,7 @@ void DataWappereGenerator::set(string fun, string type)
 				}
 
 				// should contains nummeric string
-				// TODO may need change .for now ,just compatble to int64 in protobuf
-				if(field.isNumberStr && field.protoType == "int64")
+				if(field.isNumberStr)
 				{
 					CaseValue(field, type);
 				}
@@ -1896,12 +2095,12 @@ void DataWappereGenerator::CaseValue(const JsonKey &field, string type)
 	WriteWithNewLine("{");
 	++m_nIdent;
 
-	if(field.isEntryTime)
+	if(field.isEntryTime || field.isCreatTime)
 	{
 		// EntryTime should set by viid
 		sprintf(m_charArrTmp, "%s", "// viid generate");
 	}
-	else if(field.isTime)
+	else if(field.isTime || field.isExpiredTime)
 	{
 		sprintf(m_charArrTmp, "m_data->%s(RawTimeToUnixTime(value));", field.fset.c_str());
 	}
@@ -1915,6 +2114,12 @@ void DataWappereGenerator::CaseValue(const JsonKey &field, string type)
 		// 3 -> 3, where key(3) should be string ,but we will accept too if it is an int
 		// that's numer string can be given as string("3") or int(3)
 		sprintf(m_charArrTmp, "m_data->%s(value);",field.fset.c_str());
+	}
+	else if(field.isNumberStr && field.protoType == "string" && type == "int64")	// for compatible
+	{
+		// 3 -> "3", where key(3) should be string ,but we will accept too if it is an int
+		// that's numer string can be given as string("3") or int(3)
+		sprintf(m_charArrTmp, "m_data->%s(IntTOString(value));",field.fset.c_str());
 	}
 	else
 	{
@@ -2045,4 +2250,14 @@ const JsonKey * DataWappereGenerator::GetJsonKeyWithName(string name)
 	}
 
 	return pKey;
+}
+
+bool DataWappereGenerator::stringStartWith(string src, string st)
+{
+	if(src.length() < st.length())
+	{
+		return false;
+	}
+
+	return st == src.substr(0, st.length());
 }

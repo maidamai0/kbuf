@@ -17,10 +17,13 @@
  */
 
 #include <initializer_list>
-
+#include <map>
 #include "datawapperegenerator.h"
 
 spdlog::logger *g_logger = nullptr;
+
+map<string, vector<string> > g_UnPublish;
+map<string, vector<string> > g_NotUsed;
 
 int compile(string schemaFileName, string sqlfileName = "")
 {
@@ -46,6 +49,36 @@ int compile(string schemaFileName, string sqlfileName = "")
 	return 0;
 }
 
+void updateMap(string line, map<string, vector<string> > & map)
+{
+	string key;
+	string value;
+	bool bIsValue = false;
+	for(const auto c : line)
+	{
+		if(c==' ' || c=='\t' || c=='\r')
+		{
+			continue;
+		}
+
+		if(c == '.')
+		{
+			bIsValue = true;
+			continue;
+		}
+
+		if(bIsValue)
+		{
+			value.push_back(c);
+		}
+		else
+		{
+			key.push_back(c);
+		}
+	}
+
+	map[key].push_back(value);
+}
 
 
 int main(int argc, char *argv[])
@@ -80,8 +113,25 @@ int main(int argc, char *argv[])
 	if(makeLists.is_open())
 	{
 		string file;
+		bool start = false;
 		while (getline(makeLists, file))
 		{
+			// create map
+			if(file == "#notUsed")
+			{
+				// notUsed map
+			}
+
+
+			if(!start)
+			{
+				if(file == "#start")
+				{
+					start = true;
+				}
+				continue;
+			}
+
 			vector<string> vec;
 			SplitWithSpace(file, vec);
 

@@ -27,7 +27,7 @@ using namespace rapidjson;
 
 struct JsonKey
 {
-	JsonKey():len(0), required(false),/*intCanBeStr(false),*/isTime(false),isGeoPoint(false),isNumberStr(false)
+	JsonKey():len(0), required(false),isTime(false),isGeoPoint(false),isNumberStr(false),isCreatTime(false),isExpiredTime(false)
 	{}
 
 	string name;
@@ -41,6 +41,8 @@ struct JsonKey
 	bool isGeoPoint;			// longitude or latitude
 	string protoType;			// type in protobuf,can be string/int64 when type type==string && isNumber
 	bool isNumberStr;			// string contans all digit
+	bool isCreatTime;			// auto generated create time
+	bool isExpiredTime;			// auto generated create time
 };
 
 // key-value in protobuf
