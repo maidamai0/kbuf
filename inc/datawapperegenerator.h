@@ -5,6 +5,12 @@
 #include "cdb.h"
 #include "sstream"
 
+enum WriteType
+{
+	WT_db,
+	WT_pub
+};
+
 class DataWappereGenerator
 {
 public:
@@ -42,6 +48,15 @@ private:
 	void ToString();
 	void ToStringByProto();
 	void ToStringWriter();
+	void DivideField();
+	void WriteCommonField();
+	void WriteDBField();
+	void WriteJSField();
+	void WriteKey(JsonKey key, WriteType type);
+	void WriteValue(const JsonKey &key, WriteType type);
+	void WriteDate(WriteType type, string value);
+	void WriteString(JsonKey key);
+	void WriteInt(JsonKey field);
 	void ToStringWithSpecifiedField();
 	void FromString();
 	void FromStringNoCheck();
@@ -75,6 +90,10 @@ private:
 	bool m_bIsMsg;
 	bool m_bIsObject;
 	string m_sqlFileName;
+	vector<JsonKey> m_vecCMFields;
+	vector<JsonKey> m_vecDBFields;
+	vector<JsonKey> m_vecJSFields;
+
 };
 
 #endif // DATAWAPPEREGENERATOR_H

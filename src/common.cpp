@@ -87,5 +87,4 @@ void SplitWithSpace(const string &s, vector<string> &v)
 	{
 		v.push_back(elem);
 	}
-
 }

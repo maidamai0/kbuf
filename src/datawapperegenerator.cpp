@@ -68,7 +68,8 @@ void DataWappereGenerator::GenerateDataWapper()
 	}
 
 	if(m_msg.fileName.find("msg") == string::npos &&
-			m_msg.fileName.find("list") == string::npos)
+			m_msg.fileName.find("list") == string::npos &&
+			m_msg.name != "Case_Proto")
 	{
 		m_bIsObject = true;
 	}
@@ -913,7 +914,6 @@ void DataWappereGenerator::ToString()
 
 	WriteWithNewLine("ToStringWriter(writer, read);");
 
-
 	WriteWithNewLine("str = buffer.GetString();\nreturn str;");
 
 	--m_nIdent;
@@ -932,6 +932,17 @@ void DataWappereGenerator::ToStringWriter()
 	// basic key-value
 	if(!m_msg.m_vecFields.empty())
 	{
+
+
+		// test
+		DivideField();
+		WriteCommonField();
+		WriteJSField();
+		WriteDBField();
+		// test
+
+		/*
+
 
 		for(const auto & key : m_msg.m_vecFields)
 		{
@@ -1086,14 +1097,19 @@ void DataWappereGenerator::ToStringWriter()
 						sprintf(m_charArrTmp,"writer.String(UnixTimeToPrettyTime(m_data->%s()).c_str());\n",
 								key.fget.c_str());
 					}
-					else if(key.protoType == "string" && key.isNumberStr)
+					else if(key.protoType == "string" && key.dbType == "int64")
 					{
 						sprintf(m_charArrTmp, "writer.Int64(stringToInt(m_data->%s()));\n",
 								key.fget.c_str());
 					}
-					else if(key.protoType == "int64" && key.isNumberStr)
+					else if(key.protoType == "int64" && key.dbType == "int64")
 					{
 						sprintf(m_charArrTmp, "writer.Int64(m_data->%s());\n",
+								key.fget.c_str());
+					}
+					else if(key.protoType == "int64" && key.dbType == "string")
+					{
+						sprintf(m_charArrTmp, "writer.String(IntTOString(m_data->%s()).c_str());\n",
 								key.fget.c_str());
 					}
 					else
@@ -1187,7 +1203,7 @@ void DataWappereGenerator::ToStringWriter()
 							key.fget.c_str(),
 							key.fget.c_str());
 				}
-				else if(key.protoType == "string" && key.isNumberStr)
+				else if(key.protoType == "string" && key.dbType == "int64")
 				{
 					sprintf(m_charArrTmp, "if(read)\n"
 										  "{\n"
@@ -1200,7 +1216,7 @@ void DataWappereGenerator::ToStringWriter()
 							key.fget.c_str(),
 							key.fget.c_str());
 				}
-				else if(key.protoType == "int64" && key.isNumberStr)
+				else if(key.protoType == "int64" && key.dbType == "int64")
 				{
 					sprintf(m_charArrTmp, "if(read)\n"
 										  "{\n"
@@ -1211,6 +1227,11 @@ void DataWappereGenerator::ToStringWriter()
 										  "\twriter.Int64(m_data->%s());\n"
 										  "}",
 							key.fget.c_str(),
+							key.fget.c_str());
+				}
+				else if(key.protoType == "int64" && key.dbType == "string")
+				{
+					sprintf(m_charArrTmp, "writer.String(IntTOString(m_data->%s()).c_str());\n",
 							key.fget.c_str());
 				}
 				else
@@ -1238,7 +1259,12 @@ void DataWappereGenerator::ToStringWriter()
 			WriteWithNewLine(m_charArrTmp);
 			WriteWithNewLine();
 		}
+
+		*/
 	}
+
+
+	/*
 
 	// GeoPoint
 	if(!m_msg.GeoPoint.lat.name.empty())
@@ -1271,6 +1297,9 @@ void DataWappereGenerator::ToStringWriter()
 				m_msg.GeoPoint.lat.fget.c_str());
 		WriteWithNewLine(m_charArrTmp);
 	}
+
+
+	*/
 
 	// compound type
 	if(!m_msg.m_VecSubMsg.empty())
@@ -1452,6 +1481,7 @@ void DataWappereGenerator::ToStringWriter()
 		}
 	}
 
+	/*
 	if(m_msg.name != "SubImageInfo_Proto" &&
 			m_msg.name != "Feature_Proto" &&
 			(!m_msg.bHasEntryTime || !m_msg.bHasExpireDate))
@@ -1477,12 +1507,311 @@ void DataWappereGenerator::ToStringWriter()
 		WriteWithNewLine("}");
 	}
 
+	*/
+
 	WriteWithNewLine();
 
 	WriteWithNewLine("writer.EndObject();");
 
 	--m_nIdent;
 	WriteWithNewLine("}");
+}
+
+void DataWappereGenerator::DivideField()
+{
+	// exist in db and pub,but with different type/name/format
+	bool allbutdif = false;
+	for(const auto & field : m_msg.m_vecFields)
+	{
+		allbutdif = false;
+		if(field.scope == KS_internal)
+		{
+			continue;
+		}
+
+		if(field.isCreatTime ||
+				field.isEntryTime ||
+				field.isExpiredTime ||
+				field.isGeoPoint ||
+				field.dbType != field.type ||
+				field.isTime ||
+				(field.name == "Orientation" && m_msg.name == "GPSData_Proto"))
+		{
+			allbutdif = true;
+		}
+
+
+		if(field.scope == KS_global && !allbutdif)
+		{
+			m_vecCMFields.push_back(field);
+			continue;
+		}
+
+		if(field.scope & KS_db)
+		{
+			m_vecDBFields.push_back(field);
+		}
+
+		if(field.scope & KS_js)
+		{
+			m_vecJSFields.push_back(field);
+		}
+	}
+
+	// if protocol has no entryTime or expiredTime
+	// give one when write to db;
+	if(m_bIsObject)
+	{
+		if(!m_msg.bHasEntryTime)
+		{
+			JsonKey entryTime;
+			entryTime.isEntryTime = true;
+			entryTime.name = "EntryTime";
+			m_vecDBFields.push_back(entryTime);
+		}
+
+		if(!m_msg.bHasExpireDate)
+		{
+			JsonKey expiredTime;
+			expiredTime.isExpiredTime = true;
+			expiredTime.name = "KDExpiredDate";
+			m_vecDBFields.push_back(expiredTime);
+		}
+	}
+
+}
+
+void DataWappereGenerator::WriteCommonField()
+{	
+	for(const auto & key : m_vecCMFields)
+	{
+		WriteKey(key, WT_pub);
+		WriteValue(key, WT_pub);
+		WriteWithNewLine();
+	}
+}
+
+void DataWappereGenerator::WriteJSField()
+{
+	if(m_vecJSFields.empty())
+	{
+		return;
+	}
+
+	WriteWithNewLine("if(read)");
+	WriteWithNewLine("{\n");
+	++m_nIdent;
+
+	for(const auto & key : m_vecJSFields)
+	{
+		if(key.name == "Data")
+		{
+			WriteWithNewLine("if(m_data->data().length())\n"
+							 "{\n"
+							 "\twriter.String(\"Data\");\n"
+							 "\twriter.String(m_data->data().c_str());\n"
+							 "}");
+			continue;
+		}
+
+		WriteKey(key,WT_pub);
+		WriteValue(key, WT_pub);
+		WriteWithNewLine();
+	}
+
+	--m_nIdent;
+	WriteWithNewLine("}\n");
+}
+
+void DataWappereGenerator::WriteDBField()
+{
+	if(m_vecDBFields.empty())
+	{
+		return;
+	}
+
+	if(!m_vecJSFields.empty())
+	{
+		WriteWithNewLine("else");
+	}
+	else
+	{
+		WriteWithNewLine("if(!read)");
+	}
+
+	WriteWithNewLine("{\n");
+	++m_nIdent;
+
+	bool geoWrite  = true;
+	for(const auto & key : m_vecDBFields)
+	{
+		if(key.isGeoPoint)
+		{
+			if(!geoWrite)
+			{
+				continue;
+			}
+			geoWrite = false;
+
+			// geoPoint
+			sprintf(m_charArrTmp, "writer.String(\"%s\");\n"
+								  "writer.StartObject();\n"
+								  "writer.String(\"lon\");\n"
+								  "writer.Double(m_data->%s());\n"
+								  "writer.String(\"lat\");\n"
+								  "writer.Double(m_data->%s());\n"
+								  "writer.EndObject();",
+					m_msg.GeoPoint.name.c_str(),
+					m_msg.GeoPoint.lon.fget.c_str(),
+					m_msg.GeoPoint.lat.fget.c_str());
+			WriteWithNewLine(m_charArrTmp);
+			WriteWithNewLine();
+			continue;
+		}
+
+		WriteKey(key,WT_db);
+		WriteValue(key, WT_db);
+		WriteWithNewLine();
+	}
+
+	--m_nIdent;
+	WriteWithNewLine("}\n");
+}
+void DataWappereGenerator::WriteKey(JsonKey key, WriteType type)
+{
+	if(key.name == "Orientation" && m_msg.name == "GPSData_Proto")
+	{
+		if(type == WT_pub)
+		{
+			WriteWithNewLine("writer.String(\"Direction\");");
+		}
+		else
+		{
+			WriteWithNewLine("writer.String(\"Orientation\");");
+		}
+	}
+	else
+	{
+		sprintf(m_charArrTmp, "writer.String(\"%s\");", key.name.c_str());
+		WriteWithNewLine(m_charArrTmp);
+	}
+}
+
+void DataWappereGenerator::WriteValue(const JsonKey &key, WriteType type)
+{
+	do
+	{
+		// EntryTime
+		if(key.isEntryTime)
+		{
+			WriteDate(type, "getEntryTime()");
+			break;
+		}
+
+		// KDExpiredDate
+		if(key.isExpiredTime)
+		{
+			WriteDate(type, "getExpiredTime()");
+			break;
+		}
+
+		// ordinary time
+		if(key.isTime)
+		{
+			sprintf(m_charArrTmp, "m_data->%s()", key.fget.c_str());
+			WriteDate(type, m_charArrTmp);
+			break;
+		}
+		
+		// ordinary string
+		if(key.type == "string")
+		{
+			if(type == WT_db)
+			{
+				if(key.dbType == "string")
+				{
+					WriteString(key);
+				}
+				else if(key.dbType == "int64")
+				{
+					WriteInt(key);
+				}
+			}
+			else if(type == WT_pub)
+			{
+				WriteString(key);
+			}
+
+			break;
+		}
+
+		// int
+		if(key.type == "int64")
+		{
+			WriteInt(key);
+			break;
+		}
+
+		// double
+		if(key.type == "double")
+		{
+			sprintf(m_charArrTmp, "writer.Double(m_data->%s());", key.fget.c_str());
+			WriteWithNewLine(m_charArrTmp);
+			break;
+		}
+
+		// bool (not used for now)
+		sprintf(m_charArrTmp, "writer.Bool(m_data->%s());", key.fget.c_str());
+		WriteWithNewLine(m_charArrTmp);
+		break;
+
+	}while(false);
+}
+
+void DataWappereGenerator::WriteDate(WriteType type, string value)
+{
+	if(type == WT_db)
+	{
+		sprintf(m_charArrTmp, "writer.String(UnixTimeToPrettyTime(%s).c_str());", value.c_str());
+	}
+	else if(type == WT_pub)
+	{
+		sprintf(m_charArrTmp, "writer.String(UnixTimeToRawTime(%s).c_str());", value.c_str());
+	}
+
+	WriteWithNewLine(m_charArrTmp);
+}
+
+void DataWappereGenerator::WriteString(JsonKey key)
+{
+	if(key.protoType == "int64")
+	{
+		sprintf(m_charArrTmp, "writer.String(IntTOString(m_data->%s()).c_str());", key.fget.c_str());
+	}
+	else if(key.protoType == "string")
+	{
+		sprintf(m_charArrTmp, "writer.String(m_data->%s().c_str());", key.fget.c_str());
+	}
+
+	WriteWithNewLine(m_charArrTmp);
+
+	return;
+}
+
+void DataWappereGenerator::WriteInt(JsonKey key)
+{
+	if(key.protoType == "int64")
+	{
+		sprintf(m_charArrTmp, "writer.Int64(m_data->%s());", key.fget.c_str());
+	}
+	else if(key.protoType == "string")
+	{
+		sprintf(m_charArrTmp, "writer.Int64(stringToInt(m_data->%s()));", key.fget.c_str());
+	}
+
+	WriteWithNewLine(m_charArrTmp);
+
+	return;
 }
 
 void DataWappereGenerator::ToStringByProto()
@@ -1568,7 +1897,7 @@ void DataWappereGenerator::ToStringWithSpecifiedField()
 					sprintf(m_charArrTmp,"writer.String(UnixTimeToRawTime(m_data->%s()).c_str());\n",
 							key.fget.c_str());
 				}
-				else if(key.protoType == "int64" && key.isNumberStr)
+				else if(key.protoType == "int64")
 				{
 					sprintf(m_charArrTmp, "writer.String(IntTOString(m_data->%s()).c_str());", key.fget.c_str());
 				}
@@ -2030,7 +2359,12 @@ void DataWappereGenerator::set(string fun, string type)
 		WriteWithNewLine("switch (hKey) \n{");
 
 		for(const auto &field : m_msg.m_vecFields)
-		{
+		{			
+			if(field.scope == KS_internal)
+			{
+				continue;
+			}
+
 			// not needed anymore,but we do not want to change proto
 			if(m_msg.name == "WifiUsersData_Proto")
 			{
@@ -2057,9 +2391,10 @@ void DataWappereGenerator::set(string fun, string type)
 				}
 
 				// should contains nummeric string
+				// FIXME delete this,not compatibal to string any more
 				if(field.isNumberStr)
 				{
-					CaseValue(field, type);
+					// CaseValue(field, type);
 				}
 			}
 		}
@@ -2104,18 +2439,18 @@ void DataWappereGenerator::CaseValue(const JsonKey &field, string type)
 	{
 		sprintf(m_charArrTmp, "m_data->%s(RawTimeToUnixTime(value));", field.fset.c_str());
 	}
-	else if(field.isNumberStr && field.protoType == "int64" && type == "string")
+	else if(/*field.isNumberStr && */field.protoType == "int64" && type == "string")
 	{
 		// "3" -> 3
 		sprintf(m_charArrTmp, "m_data->%s(stringToInt(value));",field.fset.c_str());
 	}
-	else if(field.isNumberStr && field.protoType == "int64" && type == "int64")	// for compatible
-	{
-		// 3 -> 3, where key(3) should be string ,but we will accept too if it is an int
-		// that's numer string can be given as string("3") or int(3)
-		sprintf(m_charArrTmp, "m_data->%s(value);",field.fset.c_str());
-	}
-	else if(field.isNumberStr && field.protoType == "string" && type == "int64")	// for compatible
+//	else if(field.isNumberStr && field.protoType == "int64" && type == "int64")	// for compatible
+//	{
+//		// 3 -> 3, where key(3) should be string ,but we will accept too if it is an int
+//		// that's numer string can be given as string("3") or int(3)
+//		sprintf(m_charArrTmp, "m_data->%s(value);",field.fset.c_str());
+//	}
+	else if(/*field.isNumberStr && */field.protoType == "string" && type == "int64")	// for compatible
 	{
 		// 3 -> "3", where key(3) should be string ,but we will accept too if it is an int
 		// that's numer string can be given as string("3") or int(3)
@@ -2198,6 +2533,8 @@ void DataWappereGenerator::WriteWithNewLine(string str)
 		m_dstFile << line;
 		m_dstFile << endl;
 	}
+
+	memset(m_charArrTmp, 0, sizeof (m_charArrTmp));
 
 	return;
 }

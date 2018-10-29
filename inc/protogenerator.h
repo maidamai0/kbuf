@@ -25,9 +25,23 @@
 using namespace std;
 using namespace rapidjson;
 
+///
+/// \brief scope of a key.
+/// global	-> exist in json/protobuf/database, default value when not specified
+/// db		-> database
+/// js		-> json(protocol)
+/// internal-> only exist in protobuf, used internal
+
+const uint8_t KS_internal	= 0;
+const uint8_t KS_db		= 1;
+const uint8_t KS_js		= 1 << 1;
+const uint8_t KS_global	= KS_db | KS_js;
+
 struct JsonKey
 {
-	JsonKey():len(0), required(false),isTime(false),isGeoPoint(false),isNumberStr(false),isCreatTime(false),isExpiredTime(false)
+	JsonKey():len(0), required(false),isTime(false),isGeoPoint(false)
+	  ,isNumberStr(false),isCreatTime(false),isExpiredTime(false)
+	  ,scope(KS_global)
 	{}
 
 	string name;
@@ -43,6 +57,8 @@ struct JsonKey
 	bool isNumberStr;			// string contans all digit
 	bool isCreatTime;			// auto generated create time
 	bool isExpiredTime;			// auto generated create time
+	uint8_t scope;
+	string dbType;				// type in database
 };
 
 // key-value in protobuf
@@ -121,6 +137,15 @@ private:
 	void write();
     bool isComplexType(string type);
 	int Runcmd(const char * cmd);
+
+	///
+	/// \brief get scope of key
+	/// \param can be "pub", "db"; "pub|db" means "pub" and "db"
+	/// \return
+	///
+	unsigned char getScope(const string &scope);
+	void getScopeTestRun(const string &scope);
+	void getScopeTest(const string &scope, uint8_t actual);
 
 public:
 	ProtoMessage m_msg;

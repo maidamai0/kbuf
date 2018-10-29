@@ -113,25 +113,8 @@ int main(int argc, char *argv[])
 	if(makeLists.is_open())
 	{
 		string file;
-		bool start = false;
 		while (getline(makeLists, file))
 		{
-			// create map
-			if(file == "#notUsed")
-			{
-				// notUsed map
-			}
-
-
-			if(!start)
-			{
-				if(file == "#start")
-				{
-					start = true;
-				}
-				continue;
-			}
-
 			vector<string> vec;
 			SplitWithSpace(file, vec);
 

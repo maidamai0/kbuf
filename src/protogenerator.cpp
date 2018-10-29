@@ -166,16 +166,19 @@ bool protoGenerator::scan()
 		string name = object.name.GetString();
 		string type;
 		string protType;
+		string dbType;
 		bool isNumberStr = false;
 		bool isTime = false;
 		bool isEntryTime = false;
 		bool isCreateTime = false;
 		bool isExpiredTime = false;
+		uint8_t scope = KS_global; // default value when not specified
 
 		if(object.value.HasMember("oneOf"))
 		{
 			// type must be int64
 			type = "string";
+			dbType = "int64";
 			isNumberStr = true;
 
 			// 这种字段，标准里的定义都是string，但是考虑到性能，在es里存的是int
@@ -285,6 +288,30 @@ bool protoGenerator::scan()
 			{
 				type = m_mapType[object.value["type"].GetString()];
 
+				if(object.value.HasMember("format"))
+				{
+					if(string(object.value["format"].GetString()) == "number")
+					{
+						dbType = "int64";
+						protType = "int64";
+					}
+				}
+
+				if(object.value.HasMember("ptype"))
+				{
+					protType = m_mapType[object.value["ptype"].GetString()];
+				}
+
+				if(object.value.HasMember("dbtype"))
+				{
+					dbType = m_mapType[object.value["dbtype"].GetString()];
+				}
+
+				if(object.value.HasMember("annotation"))
+				{
+					scope = getScope(object.value["annotation"].GetString());
+				}
+
 				// XXXTime is date time
 				string t = "Time";
 				if(name.length() > t.length())
@@ -338,17 +365,28 @@ bool protoGenerator::scan()
 		key.type = type;
 		if(protType.empty())
 		{
-			key.protoType = type;
+			key.protoType = key.type;
 		}
 		else
 		{
 			key.protoType = protType;
 		}
+
+		if(dbType.empty())
+		{
+			key.dbType = key.protoType;
+		}
+		else
+		{
+			key.dbType = dbType;
+		}
+
 		key.isNumberStr = isNumberStr;
 		key.isTime = isTime;
 		key.isEntryTime = isEntryTime;
 		key.isCreatTime = isCreateTime;
 		key.isExpiredTime = isExpiredTime;
+		key.scope = scope;
 
 		unsigned len = 0;
 		if(key.type == "string" && !key.isTime)
@@ -659,7 +697,8 @@ bool protoGenerator::WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringB
 	{
 		if(object.name != "description" &&
 			object.name != "annotation" &&
-			object.name != "ptype")
+			object.name != "ptype" &&
+			object.name != "dbtype")
 		{
 			w.String(object.name.GetString());
 			w.String(object.value.GetString());
@@ -689,4 +728,81 @@ bool protoGenerator::isLon(string str)
 bool protoGenerator::isLat(string str)
 {
 	return (str == "Latitude" || str == "ShotPlaceLatitude");
+}
+
+uint8_t protoGenerator::getScope(const string &scope)
+{
+	string temp;
+	vector<string> VecScopes;
+	uint8_t ret = KS_internal;
+
+	// split scopes
+	for(const auto & c : scope)
+	{
+		if(c!=' ' && c!='\t')
+		{
+			if(c == '|')
+			{
+				VecScopes.push_back(temp);
+				temp.clear();
+			}
+			else
+			{
+				temp.push_back(c);
+			}
+		}
+
+		if(!temp.empty())
+		{
+			VecScopes.push_back(temp);
+		}
+	}
+
+
+	// calculate value
+	for(const auto & v : VecScopes)
+	{
+		if(v == "js")
+		{
+			ret |= KS_js;
+		}
+		else if(v == "db")
+		{
+			ret |= KS_db;
+		}
+		else if(v == "internal")
+		{
+			ret = KS_internal;
+			break;
+		}
+		else if(v == "global")
+		{
+			ret = KS_global;
+			break;
+		}
+	}
+
+	return ret;
+}
+
+void protoGenerator::getScopeTestRun(const string &scope)
+{
+	getScopeTest("js", KS_js);
+	getScopeTest("db", KS_db);
+	getScopeTest("db|js", KS_global);
+}
+
+void protoGenerator::getScopeTest(const string &scope, uint8_t expected)
+{
+	uint8_t actual = getScope(scope);
+
+	if(actual != expected)
+	{
+		printf("FAILED:exprcted:%d, get:%d, original string %s:\n",
+			   expected, actual, scope.c_str());
+	}
+	else
+	{
+		printf("PASSED");
+	}
 }
