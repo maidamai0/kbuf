@@ -41,7 +41,7 @@ struct JsonKey
 {
 	JsonKey():len(0), required(false),isTime(false),isGeoPoint(false)
 	  ,isNumberStr(false),isCreatTime(false),isExpiredTime(false)
-	  ,scope(KS_global)
+	  ,scope(KS_global),isBoolean(false)
 	{}
 
 	string name;
@@ -59,6 +59,7 @@ struct JsonKey
 	bool isExpiredTime;			// auto generated create time
 	uint8_t scope;
 	string dbType;				// type in database
+	bool isBoolean;				// bool can be string or int;
 };
 
 // key-value in protobuf

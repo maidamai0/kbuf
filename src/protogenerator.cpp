@@ -173,10 +173,12 @@ bool protoGenerator::scan()
 		bool isCreateTime = false;
 		bool isExpiredTime = false;
 		uint8_t scope = KS_global; // default value when not specified
+		bool isBool = false;
 
 		if(object.value.HasMember("oneOf"))
 		{
 			// type must be int64
+			isBool = true;	// only bool use one of now
 			type = "string";
 			dbType = "int64";
 			isNumberStr = true;
@@ -387,6 +389,7 @@ bool protoGenerator::scan()
 		key.isCreatTime = isCreateTime;
 		key.isExpiredTime = isExpiredTime;
 		key.scope = scope;
+		key.isBoolean = isBool;
 
 		unsigned len = 0;
 		if(key.type == "string" && !key.isTime)

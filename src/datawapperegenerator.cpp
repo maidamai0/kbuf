@@ -2365,16 +2365,6 @@ void DataWappereGenerator::set(string fun, string type)
 				continue;
 			}
 
-			// not needed anymore,but we do not want to change proto
-			if(m_msg.name == "WifiUsersData_Proto")
-			{
-				if(field.name == "CollectorName" ||
-					field.name == "CollectorIDType")
-				{
-					continue;
-				}
-			}
-
 			if(field.type == type)
 			{
 				CaseValue(field, type);
@@ -2391,10 +2381,9 @@ void DataWappereGenerator::set(string fun, string type)
 				}
 
 				// should contains nummeric string
-				// FIXME delete this,not compatibal to string any more
-				if(field.isNumberStr)
+				if(field.isBoolean)
 				{
-					// CaseValue(field, type);
+					 CaseValue(field, type);
 				}
 			}
 		}
