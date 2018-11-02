@@ -39,7 +39,7 @@ const uint8_t KS_global	= KS_db | KS_js;
 
 struct JsonKey
 {
-	JsonKey():len(0), required(false),isTime(false),isGeoPoint(false)
+	JsonKey():len(0), required(false),isTime(false),isEntryTime(false),isGeoPoint(false)
 	  ,isNumberStr(false),isCreatTime(false),isExpiredTime(false)
 	  ,scope(KS_global),isBoolean(false)
 	{}
@@ -91,7 +91,7 @@ struct CGeoPoint
 struct ProtoMessage
 {
 	ProtoMessage():isArrray(false), modifyTime(0), isNew(false),
-	bHasEntryTime(false), bHasExpireDate(false){}
+	bHasEntryTime(false), bHasExpireDate(false), bAlone(true){}
 
 	string fileName;		// filename with no postfix from schema file
 	string name;			// title in json schema, proto message name is name_Proto, c++ class name is CName
@@ -105,6 +105,7 @@ struct ProtoMessage
 	bool isNew;				// skip new file
 	bool bHasEntryTime;
 	bool bHasExpireDate;
+	bool bAlone;			// whether this message can be saved alone
 
 	// basic type
 	vector<JsonKey> m_vecFields;

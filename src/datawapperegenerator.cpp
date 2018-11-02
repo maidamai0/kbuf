@@ -1560,7 +1560,7 @@ void DataWappereGenerator::DivideField()
 
 	// if protocol has no entryTime or expiredTime
 	// give one when write to db;
-	if(m_bIsObject)
+	if(m_bIsObject && m_msg.bAlone)
 	{
 		if(!m_msg.bHasEntryTime)
 		{

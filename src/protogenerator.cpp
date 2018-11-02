@@ -147,6 +147,11 @@ bool protoGenerator::scan()
         return false;
     }
 
+	if(d.HasMember("alone"))
+	{
+		m_msg.bAlone = d["alone"].GetInt();
+	}
+
     if(!d.HasMember("properties"))
     {
         g_logger->error("no properties found in {}", src.c_str());
@@ -701,7 +706,8 @@ bool protoGenerator::WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringB
 		if(object.name != "description" &&
 			object.name != "annotation" &&
 			object.name != "ptype" &&
-			object.name != "dbtype")
+			object.name != "dbtype" &&
+			object.name != "alone")
 		{
 			w.String(object.name.GetString());
 			w.String(object.value.GetString());
