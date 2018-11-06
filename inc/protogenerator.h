@@ -41,7 +41,7 @@ struct JsonKey
 {
 	JsonKey():len(0), required(false),isTime(false),isEntryTime(false),isGeoPoint(false)
 	  ,isNumberStr(false),isCreatTime(false),isExpiredTime(false)
-	  ,scope(KS_global),isBoolean(false)
+	  ,scope(KS_global),isBoolean(false),isDoubleString(false)
 	{}
 
 	string name;
@@ -60,6 +60,7 @@ struct JsonKey
 	uint8_t scope;
 	string dbType;				// type in database
 	bool isBoolean;				// bool can be string or int;
+	bool isDoubleString;		// can be double or valid string double
 };
 
 // key-value in protobuf

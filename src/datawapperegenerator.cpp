@@ -2386,6 +2386,15 @@ void DataWappereGenerator::set(string fun, string type)
 					 CaseValue(field, type);
 				}
 			}
+
+			if(type == "string")
+			{
+				// double can be string
+				if(field.isDoubleString)
+				{
+					CaseValue(field, type);
+				}
+			}
 		}
 
 		WriteWithNewLine("default:\n"
@@ -2444,6 +2453,10 @@ void DataWappereGenerator::CaseValue(const JsonKey &field, string type)
 		// 3 -> "3", where key(3) should be string ,but we will accept too if it is an int
 		// that's numer string can be given as string("3") or int(3)
 		sprintf(m_charArrTmp, "m_data->%s(IntTOString(value));",field.fset.c_str());
+	}
+	else if(field.isDoubleString && type == "string")
+	{
+		sprintf(m_charArrTmp, "m_data->%s(stringToDouble(value));",field.fset.c_str());
 	}
 	else
 	{

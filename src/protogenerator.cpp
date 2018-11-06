@@ -179,26 +179,32 @@ bool protoGenerator::scan()
 		bool isExpiredTime = false;
 		uint8_t scope = KS_global; // default value when not specified
 		bool isBool = false;
+		bool isDoubleString = false;
 
 		if(object.value.HasMember("oneOf"))
 		{
-			// type must be int64
-			isBool = true;	// only bool use one of now
-			type = "string";
-			dbType = "int64";
-			isNumberStr = true;
-
-			// 这种字段，标准里的定义都是string，但是考虑到性能，在es里存的是int
-			// 最开始的想法是，这种字段在protobuf中的字段全使用int64，但是在制作schema的时候
-			// 只做了部分字段，生成proto文件交给其他部门使用了。为了不给其他部门造成额外的工作量
-			// 以后这种字段在protobuf中的类型，以第一个为准，而不是全部使用int64
-			// 不出意外，以后这种情况应该都是string
 			const Value & multiType = object.value["oneOf"];
+			string firstType = m_mapType[multiType[0]["type"].GetString()];
+			string secondtType = m_mapType[multiType[1]["type"].GetString()];
+			if(firstType == "double" || secondtType == "double")
+			{
+				// double
+				isDoubleString = true;
+				type = "double";
+				dbType = "double";
+				protType = "double";
+				isDoubleString = true;
+			}
+			else if(firstType == "int64" || secondtType == "int64")
+			{
+				isBool = true;
+				type = "string";
+				dbType = "int64";
+				isNumberStr = true;
 
-			// 在protobuf中使用第一个类型
-			const Value &firstType = multiType[0];
-			assert(firstType.HasMember("type"));
-			protType = m_mapType[firstType["type"].GetString()];
+				// 在protobuf中使用第一个类型
+				protType = firstType;
+			}
 		}
 		else if(object.value.HasMember("$ref"))
 		{
@@ -432,6 +438,7 @@ bool protoGenerator::scan()
 		key.isExpiredTime = isExpiredTime;
 		key.scope = scope;
 		key.isBoolean = isBool;
+		key.isDoubleString = isDoubleString;
 
 		unsigned len = 0;
 		if(key.type == "string" && !key.isTime)
