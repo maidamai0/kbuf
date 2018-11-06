@@ -237,6 +237,43 @@ bool protoGenerator::scan()
 
 			continue;
 		}
+		else if(object.value.HasMember("alias"))
+		{
+			// 非数组字段的引用
+			string fileName = object.value["alias"].GetString();
+
+			protoGenerator pg(fileName);
+
+			if(!pg.GeneratorProto())
+			{
+				return false;
+			}
+
+			pg.m_msg.fieldName = name;
+
+			// TODO FIXME
+			string fset("mutable_");
+			fset.append(pg.m_msg.fieldName);
+			ToLowCase(fset);
+			pg.m_msg.fadder = fset;
+
+			string fsize(pg.m_msg.fieldName);
+			fsize.append("_size");
+			ToLowCase(fsize);
+			pg.m_msg.fsize = fsize;
+
+			string get(pg.m_msg.fieldName);
+			ToLowCase(get);
+			pg.m_msg.fget = get;
+
+			m_msg.m_VecSubMsg.push_back(pg.m_msg);
+			type = pg.m_msg.name;
+
+			ProtoKey proKey(type,name);
+			m_msg.m_VecProtoKey.push_back(proKey);
+
+			continue;
+		}
 		else
 		{
 			assert(object.value.HasMember("type"));
@@ -693,8 +730,11 @@ bool protoGenerator::WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringB
 	}
 	else if(object.value.IsInt64())
 	{
-		w.String(object.name.GetString());
-		w.Int64(object.value.GetInt64());
+		if(object.name != "alone")
+		{
+			w.String(object.name.GetString());
+			w.Int64(object.value.GetInt64());
+		}
 	}
 	else if(object.value.IsNumber())
 	{
@@ -707,7 +747,7 @@ bool protoGenerator::WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringB
 			object.name != "annotation" &&
 			object.name != "ptype" &&
 			object.name != "dbtype" &&
-			object.name != "alone")
+			object.name != "alias")
 		{
 			w.String(object.name.GetString());
 			w.String(object.value.GetString());
