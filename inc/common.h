@@ -23,6 +23,10 @@ void NoExtention(string &fileName);
 
 void SplitWithSpace(const string &s, vector<string> &v);
 
+bool isLon(const string &str);
+
+bool isLat(const string &str);
+
 constexpr hash_t get_str_hash(char const* str, hash_t last_value = basis)
 {
   return *str ? get_str_hash(str+1, (*str ^ last_value) * prime) : last_value;

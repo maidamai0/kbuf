@@ -88,3 +88,13 @@ void SplitWithSpace(const string &s, vector<string> &v)
 		v.push_back(elem);
 	}
 }
+
+bool isLon(const string &str)
+{
+	return (str == "Longitude" || str == "ShotPlaceLongitude");
+}
+
+bool isLat(const string &str)
+{
+	return (str == "Latitude" || str == "ShotPlaceLatitude");
+}

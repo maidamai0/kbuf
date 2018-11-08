@@ -37,6 +37,39 @@ const uint8_t KS_db		= 1;
 const uint8_t KS_js		= 1 << 1;
 const uint8_t KS_global	= KS_db | KS_js;
 
+
+///
+/// \brief file wrapper,open in constructor close in desstructor
+///
+struct FileWrapper
+{
+	FileWrapper(string name)
+		:name(name)
+		,isValid(false)
+		,fp(nullptr)
+	{
+		fp = fopen(name.c_str(), "rb");
+		if(fp)
+		{
+			isValid = true;
+		}
+	}
+
+	~FileWrapper()
+	{
+		if(fp)
+		{
+			fclose(fp);
+			fp = nullptr;
+		}
+	}
+
+
+	string name;
+	bool isValid;
+	FILE *fp;
+};
+
 struct JsonKey
 {
 	JsonKey():len(0), required(false),isTime(false),isEntryTime(false),isGeoPoint(false)
@@ -131,12 +164,18 @@ public:
 
 	bool GeneratorProto();
 private:
+	bool CheckSchema(string &file, Document &schema);
+	void GetOneOf(const Document::Member & object);
+	void GetRef(const Document::Member & object);
+	void GetAlias(const Document::Member & object);
+	void GetArray(const Document::Member & object);
+	void GetSimple(const Document::Member & object);
+	void CheckTimeField(JsonKey &jsKey);
+	void AddField(JsonKey &key);
 	bool scan();
 	bool GenerateSchema(string file, rapidjson::PrettyWriter<rapidjson::StringBuffer> &w);
 	bool WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringBuffer> &w,
 						  const GenericMember<UTF8<char>, MemoryPoolAllocator<CrtAllocator>> &object);
-	bool isLon(string str);
-	bool isLat(string str);
 	void write();
     bool isComplexType(string type);
 	int Runcmd(const char * cmd);

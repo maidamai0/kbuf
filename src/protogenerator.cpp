@@ -108,402 +108,316 @@ int protoGenerator::Runcmd(const char * cmd)
 	return system(cmd);
 }
 
+bool protoGenerator::CheckSchema(string &file, Document &schema)
+{
+	if(schema.HasParseError())
+	{
+		g_logger->error("invalid json file:{}", file);
+		return false;
+	}
+
+	if(!schema.HasMember("title"))
+	{
+		g_logger->error("no title found in {}", file);
+		return false;
+	}
+	m_msg.name = schema["title"].GetString();
+
+	if(!schema.HasMember("type"))
+	{
+		g_logger->error("no type found in {}", file);
+		return false;
+	}
+
+	if(schema.HasMember("alone"))
+	{
+		m_msg.bAlone = schema["alone"].GetInt();
+	}
+
+	if(!schema.HasMember("properties"))
+	{
+		g_logger->error("no properties found in {}", file);
+		return false;
+	}
+
+	if(schema["properties"].GetType() != kObjectType)
+	{
+		g_logger->error("properties is not a object");
+		return false;
+	}
+
+	return true;
+}
+
+void protoGenerator::GetOneOf(const Document::Member & object)
+{
+	JsonKey key;
+	key.name = object.name.GetString();
+
+	const Value & oneOf = object.value["oneOf"];
+
+	string firstType = m_mapType[oneOf[0]["type"].GetString()];
+	string secondtType = m_mapType[oneOf[1]["type"].GetString()];
+	if(firstType == "double" || secondtType == "double")
+	{
+		// double
+		key.isDoubleString = true;
+		key.type = "double";
+		key.dbType = "double";
+		key.protoType = "double";
+	}
+	else if(firstType == "int64" || secondtType == "int64")
+	{
+		key.isBoolean = true;
+		key.type = "string";
+		key.dbType = "int64";
+		key.isNumberStr = true;
+		key.protoType = firstType;
+	}
+
+	AddField(key);
+}
+
+void protoGenerator::GetRef(const Document::Member & object)
+{
+	string name = object.name.GetString();
+
+	protoGenerator pg(object.value["$ref"].GetString());
+
+	if(!pg.GeneratorProto())
+	{
+		return;
+	}
+
+	pg.m_msg.fieldName = name;
+
+	// TODO FIXME
+	string fset("mutable_");
+	fset.append(pg.m_msg.fieldName);
+	ToLowCase(fset);
+	pg.m_msg.fadder = fset;
+
+	string fsize(pg.m_msg.fieldName);
+	fsize.append("_size");
+	ToLowCase(fsize);
+	pg.m_msg.fsize = fsize;
+
+	string get(pg.m_msg.fieldName);
+	ToLowCase(get);
+	pg.m_msg.fget = get;
+
+	m_msg.m_VecSubMsg.push_back(pg.m_msg);
+
+	ProtoKey proKey(pg.m_msg.name,name);
+	m_msg.m_VecProtoKey.push_back(proKey);
+}
+
+void protoGenerator::GetAlias(const Document::Member & object)
+{
+	string name = object.name.GetString();
+
+	protoGenerator pg(object.value["alias"].GetString());
+
+	if(!pg.GeneratorProto())
+	{
+		return;
+	}
+
+	pg.m_msg.fieldName = name;
+
+	// TODO FIXME
+	string fset("mutable_");
+	fset.append(pg.m_msg.fieldName);
+	ToLowCase(fset);
+	pg.m_msg.fadder = fset;
+
+	string fsize(pg.m_msg.fieldName);
+	fsize.append("_size");
+	ToLowCase(fsize);
+	pg.m_msg.fsize = fsize;
+
+	string get(pg.m_msg.fieldName);
+	ToLowCase(get);
+	pg.m_msg.fget = get;
+
+	m_msg.m_VecSubMsg.push_back(pg.m_msg);
+
+	ProtoKey proKey(pg.m_msg.name,name);
+	m_msg.m_VecProtoKey.push_back(proKey);
+}
+
+void protoGenerator::GetArray(const Document::Member & object)
+{
+	string name = object.name.GetString();
+
+	assert(object.value.HasMember("type"));
+	assert(object.value["type"] == "array");
+
+	string fileName = object.value["items"]["$ref"].GetString();
+	protoGenerator pg(fileName);
+
+	// TODO merge
+	if(!pg.GeneratorProto())
+	{
+		return;
+	}
+
+	pg.m_msg.isArrray = true;
+	pg.m_msg.fieldName = name;
+
+	ProtoKey proKey(pg.m_msg.name, name, true);
+	m_msg.m_VecProtoKey.push_back(proKey);
+
+
+	// Case will be case in protobuf, and case is a key word in c/c++
+	// protobuf will append a '_', case_
+	// need special treatment
+	if(name == "Case")
+	{
+		name = "Case_";
+	}
+
+	string fadd("add_");
+	fadd.append(name);
+	ToLowCase(fadd);
+	pg.m_msg.fadder = fadd;
+
+	string fsize(name);
+	fsize.append("_size");
+	ToLowCase(fsize);
+	pg.m_msg.fsize = fsize;
+
+	string fget(name);
+	ToLowCase(fget);
+	pg.m_msg.fget = fget;
+
+	m_msg.m_VecSubMsg.push_back(pg.m_msg);
+}
+
+void protoGenerator::GetSimple(const Document::Member & object)
+{
+	JsonKey jsKey;
+
+	jsKey.name = object.name.GetString();
+	jsKey.type = m_mapType[object.value["type"].GetString()];
+	jsKey.dbType = jsKey.type;
+	jsKey.protoType = jsKey.type;
+
+	if(object.value.HasMember("format"))
+	{
+		if(string(object.value["format"].GetString()) == "number")
+		{
+			jsKey.dbType = "int64";
+			jsKey.protoType = "int64";
+		}
+	}
+
+	if(object.value.HasMember("dbtype"))
+	{
+		jsKey.dbType = m_mapType[object.value["dbtype"].GetString()];
+	}
+
+	if(object.value.HasMember("ptype"))
+	{
+		jsKey.protoType = m_mapType[object.value["ptype"].GetString()];
+	}
+
+	if(object.value.HasMember("annotation"))
+	{
+		jsKey.scope = getScope(object.value["annotation"].GetString());
+	}
+
+	CheckTimeField(jsKey);
+
+	AddField(jsKey);
+}
+
+void protoGenerator::CheckTimeField(JsonKey &jsKey)
+{
+	// XXXTime is date time
+	string t = "Time";
+	if(jsKey.name.length() > t.length())
+	{
+		if(jsKey.name.compare(jsKey.name.length()-t.length(), t.length(), t) == 0 ||
+				jsKey.name == "TimeUpLimit" ||
+				jsKey.name =="TimeLowLimit" ||
+				jsKey.name == "ShotTimeEx")
+		{
+			jsKey.isTime = true;
+			jsKey.protoType = "int64";
+		}
+
+		if(jsKey.name == "KDExpiredDate")
+		{
+			jsKey.isExpiredTime = true;
+			m_msg.bHasExpireDate = true;
+			jsKey.protoType = "int64";
+		}
+
+		if(jsKey.name == "EntryTime")
+		{
+			jsKey.isEntryTime = true;
+			m_msg.bHasEntryTime = true;
+		}
+
+		if(jsKey.name == "CreatTime" && m_msg.name == "Disposition_Proto")
+		{
+			jsKey.isCreatTime = true;
+		}
+	}
+}
+
 bool protoGenerator::scan()
 {
+	// get schema file name, always end with ".json"
 	string src = m_strFileNameNoExt;
 	src.append(".json");
-
 	g_logger->trace("scan {}", src.c_str());
 
-	FILE *fp = fopen(src.c_str(), "rb");
+	FileWrapper fw(src);
 
-	if(!fp)
+	if(!fw.fp)
 	{
-		g_logger->error("open {} failed:{}", src.c_str(), strerror(errno));
+		g_logger->error("open {} failed:{}", fw.name, strerror(errno));
 		return false;
 	}
 
 	char readBuffer[65536];
-	FileReadStream is(fp, readBuffer, sizeof(readBuffer));
-	Document d;
-	d.ParseStream(is);
+	FileReadStream is(fw.fp, readBuffer, sizeof(readBuffer));
+	Document schema;
+	schema.ParseStream(is);
 
-	if(d.HasParseError())
+	if(!CheckSchema(fw.name, schema))
 	{
-		g_logger->error("invalid json file:{}", src);
 		return false;
 	}
 
-    if(!d.HasMember("title"))
-    {
-        g_logger->error("no title found in {}", src.c_str());
-        return false;
-    }
-	m_msg.name = d["title"].GetString();
-
-    if(!d.HasMember("type"))
-    {
-        g_logger->error("no type found in {}", src.c_str());
-        return false;
-    }
-
-	if(d.HasMember("alone"))
-	{
-		m_msg.bAlone = d["alone"].GetInt();
-	}
-
-    if(!d.HasMember("properties"))
-    {
-        g_logger->error("no properties found in {}", src.c_str());
-        return false;
-    }
-
-    if(d["properties"].GetType() != kObjectType)
-    {
-        g_logger->error("properties is not a object");
-        return false;
-    }
-
-	Value pop = d["properties"].GetObject();
+	Value pop = schema["properties"].GetObject();
 
 	for(const auto &object : pop.GetObject())
 	{
-		string name = object.name.GetString();
-		string type;
-		string protType;
-		string dbType;
-		bool isNumberStr = false;
-		bool isTime = false;
-		bool isEntryTime = false;
-		bool isCreateTime = false;
-		bool isExpiredTime = false;
-		uint8_t scope = KS_global; // default value when not specified
-		bool isBool = false;
-		bool isDoubleString = false;
 
 		if(object.value.HasMember("oneOf"))
 		{
-			const Value & multiType = object.value["oneOf"];
-			string firstType = m_mapType[multiType[0]["type"].GetString()];
-			string secondtType = m_mapType[multiType[1]["type"].GetString()];
-			if(firstType == "double" || secondtType == "double")
-			{
-				// double
-				isDoubleString = true;
-				type = "double";
-				dbType = "double";
-				protType = "double";
-				isDoubleString = true;
-			}
-			else if(firstType == "int64" || secondtType == "int64")
-			{
-				isBool = true;
-				type = "string";
-				dbType = "int64";
-				isNumberStr = true;
-
-				// 在protobuf中使用第一个类型
-				protType = firstType;
-			}
+			GetOneOf(object);
 		}
 		else if(object.value.HasMember("$ref"))
 		{
-			// 非数组字段的引用
-			string fileName = object.value["$ref"].GetString();
-
-			protoGenerator pg(fileName);
-
-			if(!pg.GeneratorProto())
-			{
-				return false;
-			}
-
-			pg.m_msg.fieldName = name;
-
-			// TODO FIXME
-			string fset("mutable_");
-			fset.append(pg.m_msg.fieldName);
-			ToLowCase(fset);
-			pg.m_msg.fadder = fset;
-
-			string fsize(pg.m_msg.fieldName);
-			fsize.append("_size");
-			ToLowCase(fsize);
-			pg.m_msg.fsize = fsize;
-
-			string get(pg.m_msg.fieldName);
-			ToLowCase(get);
-			pg.m_msg.fget = get;
-
-			m_msg.m_VecSubMsg.push_back(pg.m_msg);
-			type = pg.m_msg.name;
-
-			ProtoKey proKey(type,name);
-			m_msg.m_VecProtoKey.push_back(proKey);
-
-			continue;
+			GetRef(object);
 		}
 		else if(object.value.HasMember("alias"))
 		{
-			// 非数组字段的引用
-			string fileName = object.value["alias"].GetString();
-
-			protoGenerator pg(fileName);
-
-			if(!pg.GeneratorProto())
-			{
-				return false;
-			}
-
-			pg.m_msg.fieldName = name;
-
-			// TODO FIXME
-			string fset("mutable_");
-			fset.append(pg.m_msg.fieldName);
-			ToLowCase(fset);
-			pg.m_msg.fadder = fset;
-
-			string fsize(pg.m_msg.fieldName);
-			fsize.append("_size");
-			ToLowCase(fsize);
-			pg.m_msg.fsize = fsize;
-
-			string get(pg.m_msg.fieldName);
-			ToLowCase(get);
-			pg.m_msg.fget = get;
-
-			m_msg.m_VecSubMsg.push_back(pg.m_msg);
-			type = pg.m_msg.name;
-
-			ProtoKey proKey(type,name);
-			m_msg.m_VecProtoKey.push_back(proKey);
-
-			continue;
+			GetAlias(object);
 		}
-		else
+		else if(object.value.HasMember("items"))
 		{
-			assert(object.value.HasMember("type"));
-			type = object.value["type"].GetString();
-
-			if(type == "array")
-			{
-				// 数组字段引用
-				assert(object.value.HasMember("items"));
-				assert(object.value["items"].HasMember("$ref"));
-				string fileName = object.value["items"]["$ref"].GetString();
-
-				protoGenerator pg(fileName);
-
-				if(!pg.GeneratorProto())
-				{
-					return false;
-				}
-
-				pg.m_msg.isArrray = true;
-				pg.m_msg.fieldName = name;
-
-
-				ProtoKey proKey(pg.m_msg.name, name, true);
-				m_msg.m_VecProtoKey.push_back(proKey);
-
-				// Case will be case in protobuf, and case is a key word in c/c++
-				// protobuf will append a '_', case_
-				// need special treatment
-				if(name == "Case")
-				{
-					name = "Case_";
-				}
-
-				string fadd("add_");
-				fadd.append(name);
-				ToLowCase(fadd);
-				pg.m_msg.fadder = fadd;
-
-				string fsize(name);
-				fsize.append("_size");
-				ToLowCase(fsize);
-				pg.m_msg.fsize = fsize;
-
-				string fget(name);
-				ToLowCase(fget);
-				pg.m_msg.fget = fget;
-
-				m_msg.m_VecSubMsg.push_back(pg.m_msg);
-
-				type = pg.m_msg.name;
-
-				continue;
-			}
-			else
-			{
-				type = m_mapType[object.value["type"].GetString()];
-
-				if(object.value.HasMember("format"))
-				{
-					if(string(object.value["format"].GetString()) == "number")
-					{
-						dbType = "int64";
-						protType = "int64";
-					}
-				}
-
-				if(object.value.HasMember("ptype"))
-				{
-					protType = m_mapType[object.value["ptype"].GetString()];
-				}
-
-				if(object.value.HasMember("dbtype"))
-				{
-					dbType = m_mapType[object.value["dbtype"].GetString()];
-				}
-
-				if(object.value.HasMember("annotation"))
-				{
-					scope = getScope(object.value["annotation"].GetString());
-				}
-
-				// XXXTime is date time
-				string t = "Time";
-				if(name.length() > t.length())
-				{
-					if(name.compare(name.length()-t.length(), t.length(), t) == 0 ||
-							name == "TimeUpLimit" ||
-							name =="TimeLowLimit" ||
-							name == "ShotTimeEx")
-					{						
-						isTime = true;
-						protType = "int64";
-					}
-
-					if(name == "KDExpiredDate")
-					{
-						isExpiredTime = true;
-						m_msg.bHasExpireDate = true;
-						protType = "int64";
-					}
-
-					if(name == "EntryTime")
-					{
-						isEntryTime = true;
-						m_msg.bHasEntryTime = true;
-					}
-
-					if(name == "CreatTime" && m_msg.name == "Disposition_Proto")
-					{
-						isCreateTime = true;
-					}
-				}
-			}
-
-			if(type.empty())
-			{
-				g_logger->warn("{}:{} has no type", src, name);
-				return false;
-			}
+			GetArray(object);
 		}
-
-		JsonKey key;
-
-		if(name  == "Direction" && m_msg.name == "GPSData_Proto")
+		else if(object.value.HasMember("type"))
 		{
-			// gpsdata/direction special handle
-			name = "Orientation";
+			GetSimple(object);
 		}
-
-		key.name = name;
-
-		key.type = type;
-		if(protType.empty())
-		{
-			key.protoType = key.type;
-		}
-		else
-		{
-			key.protoType = protType;
-		}
-
-		if(dbType.empty())
-		{
-			key.dbType = key.protoType;
-		}
-		else
-		{
-			key.dbType = dbType;
-		}
-
-		key.isNumberStr = isNumberStr;
-		key.isTime = isTime;
-		key.isEntryTime = isEntryTime;
-		key.isCreatTime = isCreateTime;
-		key.isExpiredTime = isExpiredTime;
-		key.scope = scope;
-		key.isBoolean = isBool;
-		key.isDoubleString = isDoubleString;
-
-		unsigned len = 0;
-		if(key.type == "string" && !key.isTime)
-		{
-			char msg[1024] = {};
-			sprintf(msg, "field:%s", key.name.c_str());
-
-			if(!(object.value.HasMember("maxLength")))
-			{
-				g_logger->info("{}:{} missed maxLength", src, key.name);
-			}
-			else
-			{
-				len = object.value["maxLength"].GetUint();
-			}
-		}
-
-		key.fset = "set_";
-		key.fset.append(key.name);
-		ToLowCase(key.fset);
-
-		key.fget = key.name;
-		ToLowCase(key.fget);
-
-		key.len = len;
-
-		if(isLon(key.name))
-		{
-			key.isGeoPoint = true;
-			m_msg.GeoPoint.lon = key;
-
-		}else if(isLat(key.name))
-		{
-			key.isGeoPoint = true;
-			m_msg.GeoPoint.lat = key;
-
-			if(key.name.find("ShotPlace") != string::npos)
-			{
-				m_msg.GeoPoint.name = "ShotPlaceLocation";
-			}
-			else
-			{
-				m_msg.GeoPoint.name = "Location";
-			}
-		}
-
-		m_msg.m_vecFields.push_back(key);
-
-		ProtoKey proKey(key.protoType, name);
-
-		// these two name has been wrong
-		// but we wont't want to change protobuf
-		if(proKey.name == "DisappearTime" && m_msg.name == "MotorVehicle_Proto")
-		{
-			proKey.name = "DisAppearTime";
-		}
-
-		if(proKey.name == "FaceDisappearTime" && m_msg.name == "Face_Proto")
-		{
-			proKey.name = "FaceDisAppearTime";
-		}
-		m_msg.m_VecProtoKey.push_back(proKey);
 	}
-
-	fclose(fp);
 
 	return true;
 }
@@ -776,16 +690,6 @@ bool protoGenerator::isComplexType(string type)
 	return (type == "object" || type == "array");
 }
 
-bool protoGenerator::isLon(string str)
-{
-	return (str == "Longitude" || str == "ShotPlaceLongitude");
-}
-
-bool protoGenerator::isLat(string str)
-{
-	return (str == "Latitude" || str == "ShotPlaceLatitude");
-}
-
 uint8_t protoGenerator::getScope(const string &scope)
 {
 	string temp;
@@ -861,4 +765,59 @@ void protoGenerator::getScopeTest(const string &scope, uint8_t expected)
 	{
 		printf("PASSED");
 	}
+}
+
+void protoGenerator::AddField(JsonKey &key)
+{
+	if(key.name  == "Direction" && m_msg.name == "GPSData_Proto")
+	{
+		// gpsdata/direction special handle
+		key.name = "Orientation";
+	}
+
+	// setter
+	key.fset = "set_";
+	key.fset.append(key.name);
+	ToLowCase(key.fset);
+
+	// getter
+	key.fget = key.name;
+	ToLowCase(key.fget);
+
+	if(isLon(key.name))
+	{
+		key.isGeoPoint = true;
+		m_msg.GeoPoint.lon = key;
+
+	}else if(isLat(key.name))
+	{
+		key.isGeoPoint = true;
+		m_msg.GeoPoint.lat = key;
+
+		if(key.name.find("ShotPlace") != string::npos)
+		{
+			m_msg.GeoPoint.name = "ShotPlaceLocation";
+		}
+		else
+		{
+			m_msg.GeoPoint.name = "Location";
+		}
+	}
+	m_msg.m_vecFields.push_back(key);
+
+	// protobug key
+	ProtoKey proKey(key.protoType, key.name);
+
+	// these two name has been wrong
+	// but we wont't want to change protobuf
+	if(proKey.name == "DisappearTime" && m_msg.name == "MotorVehicle_Proto")
+	{
+		proKey.name = "DisAppearTime";
+	}
+
+	if(proKey.name == "FaceDisappearTime" && m_msg.name == "Face_Proto")
+	{
+		proKey.name = "FaceDisAppearTime";
+	}
+	m_msg.m_VecProtoKey.push_back(proKey);
 }
