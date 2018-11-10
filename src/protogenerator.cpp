@@ -327,6 +327,11 @@ void protoGenerator::GetSimple(const Document::Member & object)
 		jsKey.scope = getScope(object.value["annotation"].GetString());
 	}
 
+	if(object.value.HasMember("empty"))
+	{
+		jsKey.canBeEmpty = object.value["empty"].GetInt();
+	}
+
 	CheckTimeField(jsKey);
 
 	AddField(jsKey);
@@ -651,7 +656,8 @@ bool protoGenerator::WriteSchemaValue(rapidjson::PrettyWriter<rapidjson::StringB
 	}
 	else if(object.value.IsInt64())
 	{
-		if(object.name != "alone")
+		if(object.name != "alone" &&
+			object.name != "empty")
 		{
 			w.String(object.name.GetString());
 			w.Int64(object.value.GetInt64());

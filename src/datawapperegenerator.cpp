@@ -1604,15 +1604,15 @@ void DataWappereGenerator::WriteJSField()
 
 	for(const auto & key : m_vecJSFields)
 	{
-		if(key.name == "Data")
-		{
-			WriteWithNewLine("if(m_data->data().length())\n"
-							 "{\n"
-							 "\twriter.String(\"Data\");\n"
-							 "\twriter.String(m_data->data().c_str());\n"
-							 "}");
-			continue;
-		}
+//		if(key.name == "Data")
+//		{
+//			WriteWithNewLine("if(m_data->data().length())\n"
+//							 "{\n"
+//							 "\twriter.String(\"Data\");\n"
+//							 "\twriter.String(m_data->data().c_str());\n"
+//							 "}");
+//			continue;
+//		}
 
 		WriteKey(key,WT_pub);
 		WriteValue(key, WT_pub);
@@ -1668,7 +1668,6 @@ void DataWappereGenerator::WriteDBField()
 			WriteWithNewLine();
 			continue;
 		}
-
 		WriteKey(key,WT_db);
 		WriteValue(key, WT_db);
 		WriteWithNewLine();
@@ -1679,6 +1678,15 @@ void DataWappereGenerator::WriteDBField()
 }
 void DataWappereGenerator::WriteKey(JsonKey key, WriteType type)
 {
+	if(!key.canBeEmpty)
+	{
+		sprintf(m_charArrTmp, "if(!m_data->%s().empty())", key.fget.c_str());
+		WriteWithNewLine(m_charArrTmp);
+
+		WriteWithNewLine("{\n");
+		++m_nIdent;
+	}
+
 	if(key.name == "Orientation" && m_msg.name == "GPSData_Proto")
 	{
 		if(type == WT_pub)
@@ -1766,6 +1774,13 @@ void DataWappereGenerator::WriteValue(const JsonKey &key, WriteType type)
 		break;
 
 	}while(false);
+
+
+	if(!key.canBeEmpty)
+	{
+		--m_nIdent;
+		WriteWithNewLine("}\n");
+	}
 }
 
 void DataWappereGenerator::WriteDate(WriteType type, string value)
