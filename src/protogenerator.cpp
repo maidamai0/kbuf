@@ -476,10 +476,12 @@ void protoGenerator::write()
 	//	m_dstFile << endl;
 	if(m_msg.name == "AnalysisNotify_Proto")
 	{
-		m_dstFile << "option java_package = \"com.keda.protobuf\";" << endl;
+//		m_dstFile << "option java_package = \"com.keda.protobuf\";" << endl;
 		m_dstFile << "option java_outer_classname = \"AnalysisNotifyProtobuf\";" << endl;
 		m_dstFile << endl;
 	}
+
+	m_dstFile << "option java_package = \"com.keda.viid.proto\";" << endl << endl;
 
 	// import
 	vector<string> imports;
